@@ -1,0 +1,69 @@
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: starloom-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123456}
+      MYSQL_DATABASE: starloom
+    ports:
+      - "3307:3306"
+    volumes:
+      - starloom-mysql-data:/var/lib/mysql
+    networks:
+      - starloom-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: starloom-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - starloom-redis-data:/data
+    networks:
+      - starloom-network
+
+  backend:
+    build: ./backend
+    container_name: starloom-backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST: starloom-mysql
+      DB_PORT: 3306
+      REDIS_HOST: starloom-redis
+      REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - starloom-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: starloom-nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./deploy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+    networks:
+      - starloom-network
+
+volumes:
+  starloom-mysql-data:
+  starloom-redis-data:
+
+networks:
+  starloom-network:
+    driver: bridge

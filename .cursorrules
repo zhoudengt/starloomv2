@@ -1,0 +1,297 @@
+# StarLoom v2 — 星座分析产品 Cursor 开发规范
+
+> **产品定位**：基于 AI 的星座性格分析与运势服务，面向国内抖音用户
+> **技术规范**：`docs/spec.md` | **架构参考**：`docs/architecture.md`
+
+---
+
+## 项目概述
+
+StarLoom v2 是一个独立的星座分析产品，包含：
+- **H5 前端**：移动端优先的 Web 应用，通过抖音主页链接引流
+- **后端 API**：Python FastAPI 服务，提供星座计算、AI 分析、支付等接口
+- **AI 分析引擎**：对接 Coze / 阿里云百炼 LLM，生成个性化星座分析报告
+
+---
+
+## 技术栈
+
+### 前端
+- **框架**：React 19 + TypeScript
+- **构建**：Vite
+- **样式**：Tailwind CSS 4
+- **路由**：React Router 7
+- **状态管理**：Zustand
+- **数据请求**：Axios + TanStack React Query 5
+- **动画**：Framer Motion（轻量使用）
+
+### 后端
+- **框架**：FastAPI (Python 3.11+)
+- **数据库**：MySQL 8（用户、订单、内容缓存）
+- **缓存**：Redis（每日运势缓存、会话、限流）
+- **AI/LLM**：Coze API + 阿里云百炼（流式 SSE 输出）
+- **支付**：xorpay / 虎皮椒（个人聚合支付，支持微信+支付宝）
+
+---
+
+## 目录结构
+
+```
+starloomv2/
+├── .cursorrules              # 本文件 - Cursor AI 开发规范
+├── docs/
+│   ├── spec.md               # 产品与技术详细设计
+│   └── architecture.md       # 架构设计与参考
+├── backend/                  # Python FastAPI 后端
+│   ├── app/
+│   │   ├── main.py           # FastAPI 入口
+│   │   ├── config.py         # 配置管理（环境变量）
+│   │   ├── api/
+│   │   │   ├── constellation.py  # 星座相关接口
+│   │   │   ├── payment.py        # 支付接口
+│   │   │   └── user.py           # 用户接口
+│   │   ├── services/
+│   │   │   ├── zodiac_service.py     # 星座计算逻辑
+│   │   │   ├── llm_service.py        # LLM 对接（Coze/百炼）
+│   │   │   ├── payment_service.py    # 支付对接（xorpay）
+│   │   │   └── cache_service.py      # Redis 缓存服务
+│   │   ├── models/
+│   │   │   ├── user.py           # 用户模型
+│   │   │   ├── order.py          # 订单模型
+│   │   │   └── report.py         # 报告模型
+│   │   ├── prompts/
+│   │   │   ├── daily_fortune.py      # 每日运势 prompt
+│   │   │   ├── personality.py        # 性格分析 prompt
+│   │   │   └── compatibility.py      # 配对分析 prompt
+│   │   └── utils/
+│   │       ├── zodiac_calc.py        # 日期到星座映射
+│   │       └── stream_helper.py      # SSE 流式输出工具
+│   ├── requirements.txt
+│   └── .env.example
+├── frontend/                 # React H5 前端
+│   ├── src/
+│   │   ├── pages/
+│   │   │   ├── Home.tsx          # 首页（12星座 + 今日运势）
+│   │   │   ├── DailyFortune.tsx  # 免费每日运势
+│   │   │   ├── Report.tsx        # 付费个人报告（流式）
+│   │   │   ├── Compatibility.tsx # 付费配对分析（流式）
+│   │   │   └── Payment.tsx       # 支付页
+│   │   ├── components/
+│   │   ├── api/
+│   │   ├── stores/
+│   │   └── styles/
+│   ├── package.json
+│   └── vite.config.ts
+└── scripts/                  # 运维/工具脚本（不部署到生产）
+    ├── generate_daily.py     # 每日运势批量生成
+    └── content_generator.py  # 抖音文案生成
+```
+
+---
+
+## 开发原则
+
+### 数据隔离（最高优先级）
+> **每个项目必须独立数据库、独立 Redis、独立 Docker 网络，禁止与 HiFate 或任何其他项目共用。**
+
+- MySQL：StarLoom 使用独立库 `starloom`，端口 3307（容器内 3306）
+- Redis：StarLoom 使用独立实例，端口 6380（容器内 6379）
+- Docker：StarLoom 使用独立 `docker-compose.yml`，独立网络 `starloom-network`
+- 数据卷：`starloom-mysql-data` / `starloom-redis-data`，不与其他项目共享
+
+### 核心规则
+1. **前后端分离**：前端是纯静态 H5，通过 API 与后端通信
+2. **AI 流式输出**：付费报告必须用 SSE (Server-Sent Events) 流式返回，用户体验类似 ChatGPT 逐字输出
+3. **缓存优先**：每日运势等公共数据必须 Redis 缓存，不能每次请求都调 LLM
+4. **移动端优先**：H5 页面 100% 为手机屏幕设计，不需要考虑桌面端
+5. **合规措辞**：所有面向用户的文案用"性格分析"、"运势参考"，不用"算命"、"占卜"
+
+### 缓存规则
+- 每日运势缓存 key：`daily:{sign}:{date}`（date 格式 YYYY-MM-DD），TTL 24 小时
+- 付费报告不缓存（每次实时生成）
+- 禁止缓存 key 使用时间戳（秒/毫秒级），最多精确到天
+
+### 支付规则
+- 使用 xorpay / 虎皮椒个人聚合支付
+- 支付流程：前端发起 -> 后端创建订单 -> 返回支付链接/二维码 -> 用户支付 -> xorpay 异步回调 -> 后端更新订单状态 -> 前端轮询订单状态
+- 订单状态必须持久化到 MySQL，不能只放内存
+- 支付回调必须验签，防伪造
+
+### AI 对接规则
+- LLM 调用通过统一的 `LLMService` 抽象层，不直接在接口中调用
+- 支持 Coze 和百炼两个后端，可通过配置切换
+- 流式输出使用 SSE 协议，前端用 fetch + ReadableStream 接收
+- Prompt 模板集中管理在 `prompts/` 目录，不散落在业务代码中
+- 降级策略：Coze 失败自动切换百炼，百炼也失败返回预生成的通用模板
+
+---
+
+## 参考：HiFate 后端模式
+
+> StarLoom 可参考 HiFate-bazi 项目（`/Users/zhoudt/Downloads/project/HiFate-bazi`）的以下模式，但不直接依赖其代码。
+
+### LLM 流式服务模式（重点参考）
+
+HiFate 的 LLM 对接使用工厂模式：
+- `server/services/llm_service_factory.py` — 根据配置选择 Coze 或百炼
+- 支持按场景（scene）选择不同的 LLM 平台和 Bot
+- 流式输出通过 SSE，前端逐字接收
+
+```python
+# HiFate 模式参考（简化版）
+class LLMServiceFactory:
+    @staticmethod
+    def create(platform: str) -> BaseLLMService:
+        if platform == "coze":
+            return CozeStreamService()
+        elif platform == "bailian":
+            return BailianStreamService()
+
+# 流式接口模式
+@router.post("/api/v1/analysis/stream")
+async def stream_analysis(request: AnalysisRequest):
+    llm = LLMServiceFactory.create(config.platform)
+    return StreamingResponse(
+        llm.stream_generate(prompt, params),
+        media_type="text/event-stream"
+    )
+```
+
+### Coze API 对接要点
+- Coze 使用 Bot 模式，每个分析场景对应一个 Bot ID
+- 请求走 `/open_api/v2/chat/completions`（OpenAI 兼容格式）
+- 需要 Access Token（从 Coze 控制台获取）
+- 支持流式输出（stream=true）
+- 国内版 API 基地址：`https://api.coze.cn`
+
+### 百炼 API 对接要点
+- 阿里云百炼使用 Application ID
+- 支持流式输出
+- 作为 Coze 的备用/降级方案
+
+### 架构模式对比
+
+| 模式 | HiFate 实现 | StarLoom 参考 |
+|------|------------|--------------|
+| LLM 工厂 | `llm_service_factory.py` | 同样用工厂模式切换 Coze/百炼 |
+| 流式输出 | SSE + gRPC-Web | 简化为纯 SSE（不需要 gRPC） |
+| 数据编排 | `BaziDataOrchestrator` | 星座简单，不需要编排器 |
+| 支付 | 统一支付工厂 + Stripe/Payermax | 简化为 xorpay 单一通道 |
+| 缓存 | `CacheKeyGenerator` | 参考 key 命名规范 |
+| Prompt | `server/utils/prompts/` 集中管理 | 同样集中到 `prompts/` 目录 |
+
+---
+
+## 禁止操作
+
+- 不要直接在 HiFate 项目中修改代码（StarLoom 是独立项目）
+- 不要使用 HiFate 的公司支付账号（StarLoom 用个人 xorpay）
+- 不要硬编码 API Key / 支付密钥（必须用环境变量）
+- 不要在缓存 key 中使用高精度时间戳
+- 不要在面向用户的文案中使用"算命"、"占卜"等敏感词
+- 不要让付费报告使用模板凑字数（必须用 AI 实时生成）
+- 不要未经测试直接部署
+- 不要将测试/诊断脚本放在生产目录（backend/app/ 下），放 scripts/
+- 不要与 HiFate 共用 MySQL 库、Redis 实例或 Docker 网络
+- 不要使用 HiFate 的端口（8001/3306/6379），StarLoom 用 8000/3307/6380
+
+---
+
+## 本地开发
+
+### 方式一：Docker Compose（推荐，与生产一致）
+
+```bash
+# 启动所有服务（MySQL + Redis + 后端 + Nginx）
+docker compose up -d
+
+# 只启动数据库（开发时后端本地跑）
+docker compose up -d mysql redis
+
+# 查看日志
+docker compose logs -f backend
+```
+
+### 方式二：纯本地开发
+
+```bash
+# 后端
+cd backend
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env  # 填入 API Key 等配置
+uvicorn app.main:app --reload --port 8000
+
+# 前端
+cd frontend
+npm install
+npm run dev  # Vite 开发服务器，默认 5173
+
+# 本地 MySQL / Redis（brew 原生，注意端口避免与 HiFate 冲突）
+brew services start redis
+brew services start mysql
+# MySQL 本地密码：123456
+# 创建独立数据库：CREATE DATABASE starloom;
+```
+
+---
+
+## 环境变量（.env）
+
+```bash
+# 数据库（Docker 用容器名，本地用 localhost）
+DB_HOST=starloom-mysql           # Docker 内用容器名；本地开发改为 localhost
+DB_PORT=3306                     # 容器内端口；本地开发用 3307（映射端口）
+DB_NAME=starloom                 # 独立库名，禁止与 HiFate 共用
+DB_USER=root
+DB_PASSWORD=123456
+
+# Redis（Docker 用容器名，本地用 localhost）
+REDIS_HOST=starloom-redis        # Docker 内用容器名；本地开发改为 localhost
+REDIS_PORT=6379                  # 容器内端口；本地开发用 6380（映射端口）
+
+# AI/LLM
+LLM_PLATFORM=coze              # coze 或 bailian
+COZE_ACCESS_TOKEN=xxx           # Coze API Token
+COZE_BOT_ID_DAILY=xxx           # 每日运势 Bot
+COZE_BOT_ID_REPORT=xxx          # 详细报告 Bot
+COZE_BOT_ID_COMPATIBILITY=xxx   # 配对分析 Bot
+BAILIAN_APP_ID=xxx              # 百炼 App ID（备用）
+BAILIAN_API_KEY=xxx
+
+# 支付（xorpay / 虎皮椒）
+XORPAY_APP_ID=xxx
+XORPAY_APP_SECRET=xxx
+XORPAY_NOTIFY_URL=https://yourdomain.com/api/v1/payment/notify
+
+# 应用
+APP_ENV=development             # development / production
+APP_SECRET_KEY=xxx              # JWT 签名密钥
+FRONTEND_URL=https://yourdomain.com
+```
+
+---
+
+## 接口总览（详见 docs/spec.md）
+
+| 方法 | 路径 | 说明 | 付费 |
+|------|------|------|------|
+| GET | `/api/v1/signs` | 12 星座基本信息 | 免费 |
+| GET | `/api/v1/daily/{sign}` | 今日运势 | 免费 |
+| POST | `/api/v1/report/personality` | 个人性格报告（SSE 流式） | 9.9 元 |
+| POST | `/api/v1/report/compatibility` | 配对分析（SSE 流式） | 19.9 元 |
+| POST | `/api/v1/report/annual` | 年度运势（SSE 流式） | 29.9 元 |
+| POST | `/api/v1/payment/create` | 创建支付订单 | - |
+| POST | `/api/v1/payment/notify` | xorpay 异步回调 | - |
+| GET | `/api/v1/payment/status/{id}` | 查询订单状态 | - |
+| POST | `/api/v1/user/login` | 登录/注册 | - |
+
+---
+
+## 设计风格
+
+- **主色调**：深紫 (#2D1B69) + 金色 (#F0C75E) + 星空渐变
+- **背景**：深色系（星空/宇宙感）
+- **字体**：标题用思源宋体，正文用思源黑体
+- **定位**：神秘 + 高级 + 现代，移动端全屏体验
