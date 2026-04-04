@@ -16,6 +16,10 @@ class ReportType(str, enum.Enum):
     personality = "personality"
     compatibility = "compatibility"
     annual = "annual"
+    personality_career = "personality_career"
+    personality_love = "personality_love"
+    personality_growth = "personality_growth"
+    astro_event = "astro_event"
 
 
 class Report(Base):

@@ -28,6 +28,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 if not allowed:
                     return Response("Too Many Requests", status_code=429)
 
+            if path.startswith("/api/v1/quicktest"):
+                auth = request.headers.get("authorization") or "anon"
+                key = f"rl:quicktest:{auth[:80]}"
+                allowed, _ = await incr_rate(key, WINDOW, 20)
+                if not allowed:
+                    return Response("Too Many Requests", status_code=429)
+
             if path.startswith("/api/v1/report") or path.startswith("/api/v1/chat"):
                 auth = request.headers.get("authorization") or "anon"
                 key = f"rl:paid:{auth[:80]}:{path}"

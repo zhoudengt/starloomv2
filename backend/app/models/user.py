@@ -2,7 +2,7 @@ import enum
 from datetime import date, datetime, time
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import BigInteger, Date, DateTime, Enum, String, Time
+from sqlalchemy import BigInteger, Date, DateTime, Enum, Float, String, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -28,6 +28,10 @@ class User(Base):
     birth_date: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     birth_time: Mapped[Optional[time]] = mapped_column(Time, nullable=True)
     sun_sign: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, index=True)
+    birth_place_name: Mapped[Optional[str]] = mapped_column(String(80), nullable=True)
+    birth_place_lat: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    birth_place_lon: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    birth_tz: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     gender: Mapped[Gender] = mapped_column(
         Enum(Gender, values_callable=lambda x: [e.value for e in x]),
         default=Gender.unknown,

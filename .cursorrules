@@ -30,7 +30,7 @@ StarLoom v2 是一个独立的星座分析产品，包含：
 - **数据库**：MySQL 8（用户、订单、内容缓存）
 - **缓存**：Redis（每日运势缓存、会话、限流）
 - **AI/LLM**：Coze API + 阿里云百炼（流式 SSE 输出）
-- **支付**：xorpay / 虎皮椒（个人聚合支付，支持微信+支付宝）
+- **支付**：虎皮椒 xunhupay（个人聚合支付，支持微信+支付宝）
 
 ---
 
@@ -53,7 +53,7 @@ starloomv2/
 │   │   ├── services/
 │   │   │   ├── zodiac_service.py     # 星座计算逻辑
 │   │   │   ├── llm_service.py        # LLM 对接（Coze/百炼）
-│   │   │   ├── payment_service.py    # 支付对接（xorpay）
+│   │   │   ├── payment_service.py    # 支付对接（虎皮椒 xunhupay）
 │   │   │   └── cache_service.py      # Redis 缓存服务
 │   │   ├── models/
 │   │   │   ├── user.py           # 用户模型
@@ -112,8 +112,8 @@ starloomv2/
 - 禁止缓存 key 使用时间戳（秒/毫秒级），最多精确到天
 
 ### 支付规则
-- 使用 xorpay / 虎皮椒个人聚合支付
-- 支付流程：前端发起 -> 后端创建订单 -> 返回支付链接/二维码 -> 用户支付 -> xorpay 异步回调 -> 后端更新订单状态 -> 前端轮询订单状态
+- 使用虎皮椒（xunhupay.com）个人聚合支付
+- 支付流程：前端发起 -> 后端创建订单 -> 返回支付链接/二维码 -> 用户支付 -> 虎皮椒异步回调 -> 后端更新订单状态 -> 前端轮询订单状态
 - 订单状态必须持久化到 MySQL，不能只放内存
 - 支付回调必须验签，防伪造
 
@@ -176,7 +176,7 @@ async def stream_analysis(request: AnalysisRequest):
 | LLM 工厂 | `llm_service_factory.py` | 同样用工厂模式切换 Coze/百炼 |
 | 流式输出 | SSE + gRPC-Web | 简化为纯 SSE（不需要 gRPC） |
 | 数据编排 | `BaziDataOrchestrator` | 星座简单，不需要编排器 |
-| 支付 | 统一支付工厂 + Stripe/Payermax | 简化为 xorpay 单一通道 |
+| 支付 | 统一支付工厂 + Stripe/Payermax | 简化为虎皮椒 xunhupay 单一通道 |
 | 缓存 | `CacheKeyGenerator` | 参考 key 命名规范 |
 | Prompt | `server/utils/prompts/` 集中管理 | 同样集中到 `prompts/` 目录 |
 
@@ -185,7 +185,7 @@ async def stream_analysis(request: AnalysisRequest):
 ## 禁止操作
 
 - 不要直接在 HiFate 项目中修改代码（StarLoom 是独立项目）
-- 不要使用 HiFate 的公司支付账号（StarLoom 用个人 xorpay）
+- 不要使用 HiFate 的公司支付账号（StarLoom 用个人虎皮椒商户）
 - 不要硬编码 API Key / 支付密钥（必须用环境变量）
 - 不要在缓存 key 中使用高精度时间戳
 - 不要在面向用户的文案中使用"算命"、"占卜"等敏感词
@@ -194,45 +194,59 @@ async def stream_analysis(request: AnalysisRequest):
 - 不要将测试/诊断脚本放在生产目录（backend/app/ 下），放 scripts/
 - 不要与 HiFate 共用 MySQL 库、Redis 实例或 Docker 网络
 - 不要使用 HiFate 的端口（8001/3306/6379），StarLoom 用 8000/3307/6380
+- **不要**用 macOS Command Line Tools 自带的 **Python 3.9**（或未激活 venv 时 PATH 里的旧 `uvicorn`）跑本项目后端；必须用 `backend/.venv`（见下「本地开发」）
 
 ---
 
 ## 本地开发
 
-### 方式一：Docker Compose（推荐，与生产一致）
+### 方式一：纯本地（推荐，默认不用 Docker）
+
+与生产区分：**日常开发在本地用 venv + uvicorn + Vite**；**生产在服务器上用 Docker** 跑 MySQL、Redis、后端、Nginx。  
+**仓库约定：用户本地默认不用 Docker；仅服务器用 Docker。**
+
+#### 为何经常出现「缺 pydantic_settings / .venv 不存在」
+
+- `backend/.venv/` **在 .gitignore 中**，新克隆或清理后目录可能不存在；此时若直接运行系统 `python3`/`uvicorn`，macOS 上常落到 **Python 3.9**，依赖未安装，报错 `ModuleNotFoundError`。
+- **对策**：始终在 `backend` 下用 **Homebrew 的 `python3`（3.11+）** 建 venv，并只用该 venv 启动。
+
+#### Cursor Agent 约定（与 `.cursor/rules/starloom-local-runtime.mdc` 一致）
+
+- 改 `backend/.env` 或依赖后端热加载的配置后：**应重启本机 uvicorn**（`8000`），并用 `GET /health` 确认。
+- 启动/重启后端时：**优先** `backend/.venv/bin/uvicorn ...`，避免误用全局 Python 3.9 的 uvicorn。
 
 ```bash
-# 启动所有服务（MySQL + Redis + 后端 + Nginx）
-docker compose up -d
-
-# 只启动数据库（开发时后端本地跑）
-docker compose up -d mysql redis
-
-# 查看日志
-docker compose logs -f backend
-```
-
-### 方式二：纯本地开发
-
-```bash
-# 后端
+# 后端（macOS 示例：用 brew 的 python3 创建 venv，勿用 CLT python3.9）
 cd backend
-python -m venv .venv
-source .venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 cp .env.example .env  # 填入 API Key 等配置
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # 前端
 cd frontend
 npm install
 npm run dev  # Vite 开发服务器，默认 5173
 
-# 本地 MySQL / Redis（brew 原生，注意端口避免与 HiFate 冲突）
+# 本地 MySQL / Redis（brew 等，注意端口避免与 HiFate 冲突）
 brew services start redis
 brew services start mysql
 # MySQL 本地密码：123456
 # 创建独立数据库：CREATE DATABASE starloom;
+```
+
+### 方式二：Docker Compose（可选，与生产编排对齐或本机联调）
+
+```bash
+# 启动所有服务（MySQL + Redis + 后端 + Nginx）
+docker compose up -d
+
+# 只启动数据库（开发时后端仍本地跑）
+docker compose up -d mysql redis
+
+# 查看日志
+docker compose logs -f backend
 ```
 
 ---
@@ -260,10 +274,13 @@ COZE_BOT_ID_COMPATIBILITY=xxx   # 配对分析 Bot
 BAILIAN_APP_ID=xxx              # 百炼 App ID（备用）
 BAILIAN_API_KEY=xxx
 
-# 支付（xorpay / 虎皮椒）
-XORPAY_APP_ID=xxx
-XORPAY_APP_SECRET=xxx
-XORPAY_NOTIFY_URL=https://yourdomain.com/api/v1/payment/notify
+# 支付（虎皮椒，微信/支付宝各一对）
+XUNHUPAY_APPID_WECHAT=xxx
+XUNHUPAY_APPSECRET_WECHAT=xxx
+XUNHUPAY_APPID_ALIPAY=xxx
+XUNHUPAY_APPSECRET_ALIPAY=xxx
+XUNHUPAY_NOTIFY_URL=https://yourdomain.com/api/v1/payment/notify
+XUNHUPAY_API_BASE=https://api.xunhupay.com
 
 # 应用
 APP_ENV=development             # development / production
@@ -283,7 +300,7 @@ FRONTEND_URL=https://yourdomain.com
 | POST | `/api/v1/report/compatibility` | 配对分析（SSE 流式） | 19.9 元 |
 | POST | `/api/v1/report/annual` | 年度运势（SSE 流式） | 29.9 元 |
 | POST | `/api/v1/payment/create` | 创建支付订单 | - |
-| POST | `/api/v1/payment/notify` | xorpay 异步回调 | - |
+| POST | `/api/v1/payment/notify` | 虎皮椒异步回调 | - |
 | GET | `/api/v1/payment/status/{id}` | 查询订单状态 | - |
 | POST | `/api/v1/user/login` | 登录/注册 | - |
 
@@ -295,3 +312,16 @@ FRONTEND_URL=https://yourdomain.com
 - **背景**：深色系（星空/宇宙感）
 - **字体**：标题用思源宋体，正文用思源黑体
 - **定位**：神秘 + 高级 + 现代，移动端全屏体验
+
+---
+
+## 产品与设计原则（每次改动前必读）
+
+1. **产品经理视角**：每个页面、每个区块都要有明确的商业目的（引导注册 / 付费转化 / 分享裂变）。不做无用装饰。
+2. **UI 设计师视角**：以高客单星座/塔罗类付费 App 为标杆（如 Co-Star、The Pattern、测测星座）。布局大气留白，字体层级分明，图片高清全屏。
+3. **开发者视角**：先确定视觉与交互目标，再写代码。不写「能用就行」的 UI。
+4. **单页优先**：表单类页面能一页搞定绝不拆多步。减少用户跳转 = 减少流失。
+5. **即时反馈**：用户操作后 200ms 内必须有视觉响应（选中态、星座图更新、动画）。
+6. **图片质量**：所有星座插画在移动端必须清晰（用 `object-cover` + 合适尺寸），不允许出现模糊拉伸。
+7. **加载体验**：等待超过 1.5 秒的操作必须有精致的加载动画，但动画本身不应人为拖延超过实际等待时间。
+8. **自动重启**：每次改完前端或后端代码后，自动重启对应的开发服务器（前端 Vite / 后端 uvicorn），确保改动即时可见。

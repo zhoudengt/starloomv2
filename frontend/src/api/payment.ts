@@ -4,12 +4,26 @@ export async function createPayment(payload: {
   product_type: string
   amount: number
   pay_method: string
+  extra_data?: Record<string, unknown>
 }) {
   const { data } = await api.post('/payment/create', payload)
-  return data as { order_id: string; pay_url: string; qr_code?: string; expire_at?: string }
+  return data as {
+    order_id: string
+    /** 虎皮椒手机端跳转链接 */
+    url: string
+    /** PC 扫码图地址 */
+    url_qrcode?: string
+    expire_at?: string
+  }
 }
 
 export async function getPaymentStatus(orderId: string) {
   const { data } = await api.get(`/payment/status/${orderId}`)
-  return data as { order_id: string; status: string; product_type: string; amount: string }
+  return data as {
+    order_id: string
+    status: string
+    product_type: string
+    amount: string
+    extra_data?: Record<string, unknown>
+  }
 }

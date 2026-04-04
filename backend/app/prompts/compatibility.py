@@ -1,7 +1,16 @@
-"""Compatibility report prompt."""
+"""Compatibility: user input — system prompt lives in 百炼智能体."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from app.services.astro_models import NatalChartData, SynastryData
+
+from app.prompts.chart_formatter import format_natal_chart_for_prompt, format_synastry_for_prompt
 
 
-def build_compatibility_prompt(
+def build_compatibility_user_input(
     name1: str,
     birth_date1: str,
     sign1: str,
@@ -10,34 +19,23 @@ def build_compatibility_prompt(
     birth_date2: str,
     sign2: str,
     sign2_cn: str,
+    natal1: Optional["NatalChartData"] = None,
+    natal2: Optional["NatalChartData"] = None,
+    synastry: Optional["SynastryData"] = None,
 ) -> str:
-    return f"""你是一位专业的星座关系分析师。
-用户 A：{name1}，出生日期 {birth_date1}，太阳星座 {sign1_cn}（{sign1}）
-用户 B：{name2}，出生日期 {birth_date2}，太阳星座 {sign2_cn}（{sign2}）
-
-请生成一份深度配对分析报告（Markdown）：
-
-## 1. 缘分指数
-总体契合度评分（0-100），以及各维度评分：性格契合度、感情契合度、价值观契合度、生活习惯契合度。
-
-## 2. 你们的化学反应
-两个星座相遇会碰撞出什么火花？核心吸引力在哪里？
-
-## 3. 甜蜜优势
-这段关系中最美好的部分，让你们走在一起的理由。
-
-## 4. 潜在摩擦
-可能出现分歧的地方，以及具体表现。
-
-## 5. 相处秘诀
-5 条针对性的建议，帮助你们更好地经营关系。
-
-## 6. 总结寄语
-一段温暖的祝福和总结。
-
-要求：
-- 总字数 1200-2000 字
-- 具体到两个人的星座特质互动，不要泛泛而谈
-- 语气积极温暖，即使指出问题也给出解决方案
-- 不做绝对判断（不说"不合适"、"注定分开"等）
-- 文末附一行免责声明：本内容基于星座文化提供性格分析参考，仅供娱乐，不构成任何决策建议。"""
+    a = name1 or "A"
+    b = name2 or "B"
+    legacy = (
+        f"用户A：{a}，出生日期 {birth_date1}，{sign1_cn}({sign1})；"
+        f"用户B：{b}，出生日期 {birth_date2}，{sign2_cn}({sign2})"
+    )
+    blocks: list[str] = []
+    if natal1 is not None:
+        blocks.append("【用户A 星盘】\n" + format_natal_chart_for_prompt(natal1))
+    if natal2 is not None:
+        blocks.append("【用户B 星盘】\n" + format_natal_chart_for_prompt(natal2))
+    if synastry is not None:
+        blocks.append(format_synastry_for_prompt(synastry, a, b))
+    if blocks:
+        return "\n\n".join(blocks) + "\n\n【摘要】\n" + legacy
+    return legacy

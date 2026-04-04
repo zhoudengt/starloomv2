@@ -18,7 +18,7 @@ if _BACKEND not in sys.path:
 from app.config import get_settings  # noqa: E402
 from app.database import AsyncSessionLocal  # noqa: E402
 from app.models.daily_fortune import DailyFortune  # noqa: E402
-from app.prompts.daily_fortune import build_daily_prompt  # noqa: E402
+from app.prompts.daily_fortune import build_daily_user_input  # noqa: E402
 from app.services import cache_service  # noqa: E402
 from app.services.llm_service import generate_json_daily  # noqa: E402
 from app.utils.zodiac_calc import list_all_signs  # noqa: E402
@@ -48,9 +48,9 @@ async def main() -> None:
     async with AsyncSessionLocal() as session:
         for meta in list_all_signs():
             slug = meta["sign"]
-            prompt = build_daily_prompt(meta["sign_cn"], today.isoformat())
+            user_input = build_daily_user_input(meta["sign_cn"], today.isoformat())
             raw = await generate_json_daily(
-                settings, prompt, meta["sign_cn"], today.isoformat()
+                settings, user_input, meta["sign_cn"], today.isoformat()
             )
             data = _normalize(raw, meta["sign_cn"], today)
             await cache_service.set_daily_cached(slug, today, data)

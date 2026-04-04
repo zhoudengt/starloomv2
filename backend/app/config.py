@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     jwt_expire_days: int = 7
 
+    # Demo: skip paid-order checks and auto-use demo orders (never enable in production)
+    demo_mode: bool = True
+
     db_host: str = "localhost"
     db_port: int = 3307
     db_name: str = "starloom"
@@ -27,6 +30,11 @@ class Settings(BaseSettings):
     redis_port: int = 6380
     redis_db: int = 0
 
+    # Public daily fortune: prefetch all 12 signs at Beijing local time (cron in app lifespan)
+    daily_prefetch_enabled: bool = True
+    daily_prefetch_hour_beijing: int = 0
+    daily_prefetch_minute_beijing: int = 5
+
     llm_platform: str = "coze"
     coze_api_base: str = "https://api.coze.cn"
     coze_access_token: str = ""
@@ -36,14 +44,26 @@ class Settings(BaseSettings):
     coze_bot_id_annual: str = ""
     coze_bot_id_chat: str = ""
 
+    # Bailian: OpenAI-compatible base (legacy HTTP path, unused when using Application API)
     bailian_api_base: str = "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    # Legacy single app id (Coze-fallback path only)
     bailian_app_id: str = ""
     bailian_api_key: str = ""
 
-    xorpay_app_id: str = ""
-    xorpay_app_secret: str = ""
-    xorpay_notify_url: str = ""
-    xorpay_api_base: str = "https://xorpay.com"
+    # Per-scene 百炼智能体应用 ID（DashScope Application）
+    bailian_app_id_daily: str = ""
+    bailian_app_id_personality: str = ""
+    bailian_app_id_compatibility: str = ""
+    bailian_app_id_annual: str = ""
+    bailian_app_id_chat: str = ""
+
+    # 虎皮椒 xunhupay：微信 / 支付宝各一对 APPID + SECRET
+    xunhupay_appid_wechat: str = ""
+    xunhupay_appsecret_wechat: str = ""
+    xunhupay_appid_alipay: str = ""
+    xunhupay_appsecret_alipay: str = ""
+    xunhupay_notify_url: str = ""
+    xunhupay_api_base: str = "https://api.xunhupay.com"
 
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 

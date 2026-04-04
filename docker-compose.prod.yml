@@ -1,0 +1,80 @@
+# 生产：HTTPS、后端不暴露宿主机端口、MySQL/Redis 仅本机回环。
+# 用法：cp .env.example .env && 编辑；前端 npm run build；再：
+#   docker compose -f docker-compose.prod.yml up -d --build
+# 证书：在服务器用 certbot / openssl 生成后，把 SSL_FULLCHAIN_HOST / SSL_PRIVKEY_HOST 指到主机路径。
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: starloom-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-123456}
+      MYSQL_DATABASE: starloom
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - starloom-mysql-data:/var/lib/mysql
+    networks:
+      - starloom-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: starloom-redis
+    ports:
+      - "127.0.0.1:6380:6379"
+    volumes:
+      - starloom-redis-data:/data
+    networks:
+      - starloom-network
+
+  backend:
+    build: ./backend
+    container_name: starloom-backend
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST: starloom-mysql
+      DB_PORT: 3306
+      REDIS_HOST: starloom-redis
+      REDIS_PORT: 6379
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - starloom-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: starloom-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      SSL_CERTIFICATE: ${SSL_CERTIFICATE:-/etc/nginx/ssl/fullchain.pem}
+      SSL_CERTIFICATE_KEY: ${SSL_CERTIFICATE_KEY:-/etc/nginx/ssl/privkey.pem}
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html:ro
+      - ./deploy/nginx/https.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./deploy/letsencrypt-webroot:/var/www/certbot:ro
+      - ${SSL_FULLCHAIN_HOST:-./deploy/ssl/fullchain.pem}:/etc/nginx/ssl/fullchain.pem:ro
+      - ${SSL_PRIVKEY_HOST:-./deploy/ssl/privkey.pem}:/etc/nginx/ssl/privkey.pem:ro
+    depends_on:
+      - backend
+    networks:
+      - starloom-network
+
+volumes:
+  starloom-mysql-data:
+  starloom-redis-data:
+
+networks:
+  starloom-network:
+    driver: bridge

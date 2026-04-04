@@ -17,6 +17,11 @@ class ProductType(str, enum.Enum):
     compatibility = "compatibility"
     annual = "annual"
     chat = "chat"
+    personality_career = "personality_career"
+    personality_love = "personality_love"
+    personality_growth = "personality_growth"
+    astro_event = "astro_event"
+    season_pass = "season_pass"
 
 
 class OrderStatus(str, enum.Enum):
@@ -43,7 +48,7 @@ class Order(Base):
         index=True,
     )
     pay_method: Mapped[Optional[str]] = mapped_column(String(20), nullable=True)
-    xorpay_order_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    provider_order_id: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     paid_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     expired_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     extra_data: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)

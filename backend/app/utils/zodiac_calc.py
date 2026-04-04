@@ -1,4 +1,7 @@
-"""Date to sun sign mapping and static sign metadata."""
+"""Date to sun sign mapping and static sign metadata (月日查表，与热带黄道多数日期一致).
+
+完整行星与宫位计算见 `app.services.astro_service`（kerykeion / Swiss Ephemeris）。
+"""
 
 from datetime import date, datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -88,4 +91,23 @@ def list_all_signs() -> List[Dict[str, Any]]:
 
 
 def parse_birth_date(s: str) -> date:
-    return datetime.strptime(s, "%Y-%m-%d").date()
+    """Parse user-supplied birth date; supports common separators (API / forms)."""
+    raw = (s or "").strip()
+    if not raw:
+        raise ValueError("empty birth date")
+    for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%Y.%m.%d"):
+        try:
+            return datetime.strptime(raw, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(f"invalid birth date: {raw!r} (use YYYY-MM-DD)")
+
+
+def parse_birth_date_http(s: str) -> date:
+    """For FastAPI routes: invalid dates become 422 instead of 500."""
+    try:
+        return parse_birth_date(s)
+    except ValueError as e:
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=422, detail=str(e)) from e

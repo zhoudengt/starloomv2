@@ -42,7 +42,7 @@
 │                     外部服务层                                 │
 │                                                               │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐                    │
-│  │ Coze API │  │ 百炼 API  │  │  xorpay  │                    │
+│  │ Coze API │  │ 百炼 API  │  │ 虎皮椒   │                    │
 │  │ (LLM主)  │  │ (LLM备)  │  │  (支付)  │                    │
 │  └──────────┘  └──────────┘  └──────────┘                    │
 │                                                               │
@@ -71,7 +71,7 @@
             ├── starloom-backend（FastAPI + Uvicorn）
             │       ├── 处理 HTTP 请求
             │       ├── SSE 流式输出（报告生成）
-            │       └── xorpay 回调接收
+            │       └── 虎皮椒支付回调接收
             │
             ├── starloom-mysql（MySQL 8，端口 3307:3306）
             │       └── starloom 库（独立数据卷）
@@ -119,7 +119,7 @@ server {
         proxy_read_timeout 300s;
     }
 
-    # xorpay 支付回调
+    # 虎皮椒支付回调
     location /api/v1/payment/notify {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;
@@ -238,15 +238,15 @@ server {
 后端创建订单（MySQL orders 表，status=pending）
     │
     ▼
-调用 xorpay API 获取支付链接
+调用虎皮椒 API 获取支付链接
     │
     ▼
-返回 pay_url → 前端跳转支付页面
+返回 url（及可选 url_qrcode）→ 前端跳转或展示扫码图
     │
     ▼
 用户完成支付
     │
-    ├── xorpay 异步回调 → 后端验签 → 更新订单 status=paid
+    ├── 虎皮椒异步回调 → 后端验签 → 更新订单 status=paid
     │
     └── 前端轮询订单状态（每 2 秒）
             │
@@ -384,7 +384,7 @@ LLM 调用: 全局 100 次/分钟（防止费用爆炸）
 ### 6.2 安全措施
 
 - HTTPS 全站加密
-- xorpay 回调验签（MD5）
+- 虎皮椒回调验签（hash / MD5）
 - JWT Token 认证（付费接口）
 - SQL 注入防护（SQLAlchemy ORM）
 - XSS 防护（前端输出转义）
@@ -432,7 +432,7 @@ LLM 调用: 全局 100 次/分钟（防止费用爆炸）
 | 域名 | 5-10 元/月 | .cn 域名约 50-100/年 |
 | SSL 证书 | 0 | Let's Encrypt 免费 |
 | Coze API | 0-50 元 | 个人版有免费额度 |
-| xorpay | 0 | 按交易抽成，无月费 |
+| 虎皮椒 | 开户费+按交易 | 以官网为准 |
 | CDN | 0-20 元 | 七牛/又拍云有免费额度 |
 | **合计** | **~100 元/月** | 极低启动成本 |
 

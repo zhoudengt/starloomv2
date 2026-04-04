@@ -1,5 +1,9 @@
+.cursor/
+
 backend/.venv/
 backend/.env
+/.env
+deploy/ssl/*.pem
 __pycache__/
 *.py[cod]
 .pytest_cache/
