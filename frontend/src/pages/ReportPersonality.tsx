@@ -319,6 +319,7 @@ export default function ReportPersonality() {
               content={text}
               sectionImages={SECTION_IMAGES_PERSONALITY}
               gender={gender as ReportGender}
+              usePersonalityCanonicalImages
               header={
                 <ReportCertificateHeader
                   badge="StarLoom · Personality"

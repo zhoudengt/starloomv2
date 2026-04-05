@@ -16,6 +16,19 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
+def _log_payment_config_warnings() -> None:
+    """Single global payment config — warn at startup if real pay will 503 (no behavior change)."""
+    s = get_settings()
+    if not (s.xunhupay_notify_url or "").strip():
+        logger.warning(
+            "XUNHUPAY_NOTIFY_URL is empty — POST /api/v1/payment/create will return 503 until configured"
+        )
+    if not (s.xunhupay_appid_wechat and s.xunhupay_appsecret_wechat):
+        logger.warning(
+            "XUNHUPAY wechat appid/secret incomplete — wechat payment create will return 503"
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
@@ -23,6 +36,7 @@ async def lifespan(app: FastAPI):
         logger.info("Database tables ensured")
     except Exception as e:
         logger.warning("init_db skipped or failed: %s", e)
+    _log_payment_config_warnings()
     setup_daily_prefetch_schedule()
     scheduler.start()
     yield

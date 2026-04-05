@@ -145,6 +145,61 @@ async def create_xunhupay_payment(
     return data
 
 
+async def query_xunhupay_order(
+    settings: Settings,
+    *,
+    pay_method: str,
+    out_trade_order: str,
+) -> dict[str, Any]:
+    """
+    调用虎皮椒订单查询（query.html），用于本地开发时 notify 无法打到本机、靠轮询对齐支付状态。
+    文档：https://www.xunhupay.com/doc/api/search.html
+    """
+    appid, appsecret = _xunhupay_credentials(settings, pay_method)
+    if not appid or not appsecret:
+        raise ValueError(f"Xunhupay credentials not configured for pay_method={pay_method}")
+
+    ts = int(time.time())
+    nonce = _nonce_str(32)
+    body: dict[str, Any] = {
+        "appid": appid,
+        "out_trade_order": out_trade_order,
+        "time": ts,
+        "nonce_str": nonce,
+    }
+    body["hash"] = generate_xunhupay_hash(body, appsecret)
+
+    base = settings.xunhupay_api_base.rstrip("/")
+    url = f"{base}/payment/query.html"
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        r = await client.post(url, data=body)
+        try:
+            r.raise_for_status()
+        except httpx.HTTPStatusError:
+            logger.exception("xunhupay query HTTP error: %s", r.text)
+            raise
+        try:
+            data = r.json()
+        except Exception:
+            logger.exception("xunhupay query invalid JSON: %s", r.text)
+            raise
+
+    errcode = data.get("errcode")
+    if errcode != 0:
+        logger.warning("xunhupay query failed: %s", data)
+        return data
+
+    resp_hash = str(data.get("hash") or "")
+    if resp_hash and appsecret:
+        expected = generate_xunhupay_hash(dict(data), appsecret)
+        if expected != resp_hash:
+            logger.error("xunhupay query response hash mismatch")
+            raise ValueError("Invalid payment gateway query signature")
+
+    return data
+
+
 def verify_notify(data: dict[str, Any], appsecret: str) -> bool:
     """验证虎皮椒异步通知签名。"""
     sign = str(data.get("hash") or "")

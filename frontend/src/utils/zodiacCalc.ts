@@ -175,3 +175,5 @@ export function allowedAnnualYears(): [number, number] {
   const cy = new Date().getFullYear()
   return [cy, cy + 1]
 }
+
+export { triadInsightBlurb } from './triadInsightCopy'

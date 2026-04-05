@@ -17,8 +17,9 @@ export async function createPayment(payload: {
   }
 }
 
+/** 会先请求后端「同步虎皮椒订单状态」再返回，本地 notify 打不到时也能从 pending 变 paid */
 export async function getPaymentStatus(orderId: string) {
-  const { data } = await api.get(`/payment/status/${orderId}`)
+  const { data } = await api.post(`/payment/sync/${orderId}`)
   return data as {
     order_id: string
     status: string

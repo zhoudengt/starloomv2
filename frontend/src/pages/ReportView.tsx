@@ -41,6 +41,11 @@ export default function ReportView() {
 
   const sectionImages = sectionImagesForReportType(data.report_type)
   const reportGender = resolveReportGenderFromInput(data.input_data)
+  const personalityFamily = ['personality', 'personality_career', 'personality_love', 'personality_growth'].includes(
+    data.report_type,
+  )
+  const isCompatibility = data.report_type === 'compatibility'
+  const isAnnual = data.report_type === 'annual'
 
   return (
     <>
@@ -55,6 +60,9 @@ export default function ReportView() {
         content={data.content}
         sectionImages={sectionImages}
         gender={reportGender}
+        usePersonalityCanonicalImages={personalityFamily}
+        useCompatibilityCanonicalImages={isCompatibility}
+        useAnnualCanonicalImages={isAnnual}
         header={
           <ReportCertificateHeader
             badge="StarLoom Archive"

@@ -336,6 +336,17 @@ body::before {
   outline: none;
 }
 
+/* Native date control in narrow flex columns — prevent inner edit box from overflowing */
+.input-date-cosmic::-webkit-datetime-edit {
+  padding: 0;
+}
+.input-date-cosmic::-webkit-datetime-edit-fields-wrapper {
+  max-width: 100%;
+}
+.input-date-cosmic::-webkit-calendar-picker-indicator {
+  flex-shrink: 0;
+}
+
 .text-hero-glow {
   text-shadow:
     0 0 40px rgba(255, 45, 120, 0.35),
@@ -451,4 +462,100 @@ body::before {
 
 .report-stream-couple-heartbeat {
   animation: report-stream-couple-heartbeat 2.4s ease-in-out infinite;
+}
+
+/* MarkdownReport · 章节内成稿正文（面向用户的阅读排版） */
+.markdown-report h2 {
+  font-family: var(--font-serif);
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: var(--color-brand-gold);
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(240, 199, 94, 0.22);
+  letter-spacing: 0.02em;
+}
+
+.markdown-report h2:first-child {
+  margin-top: 0;
+}
+
+.markdown-report h3 {
+  font-family: var(--font-serif);
+  color: var(--color-text-primary);
+}
+
+.markdown-report blockquote {
+  margin: 0.65rem 0;
+  padding: 0.5rem 0.65rem 0.5rem 0.85rem;
+  border-left: 3px solid rgba(167, 139, 250, 0.45);
+  border-radius: 0 0.35rem 0.35rem 0;
+  background: rgba(0, 0, 0, 0.22);
+  color: var(--color-text-tertiary);
+  font-size: 0.94em;
+  line-height: 1.65;
+}
+
+.markdown-report hr {
+  margin: 1rem 0;
+  border: none;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(240, 199, 94, 0.25) 20%,
+    rgba(167, 139, 250, 0.2) 80%,
+    transparent
+  );
+}
+
+.markdown-report code {
+  font-size: 0.88em;
+  padding: 0.1rem 0.35rem;
+  border-radius: 0.25rem;
+  background: rgba(0, 0, 0, 0.4);
+  color: var(--color-brand-cyan);
+}
+
+/* 性格报告 ·「性格优势与挑战」— 优势/挑战分区（MarkdownReport--strengths） */
+.markdown-report--strengths h3:nth-of-type(1) {
+  margin-top: 0.25rem;
+  margin-bottom: 0.65rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.5rem;
+  border-left: 3px solid var(--color-brand-gold);
+  background: rgba(255, 215, 0, 0.07);
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.markdown-report--strengths h3:nth-of-type(2) {
+  margin-top: 1.35rem;
+  margin-bottom: 0.65rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.5rem;
+  border-left: 3px solid var(--color-brand-coral);
+  background: rgba(255, 107, 74, 0.1);
+  color: var(--color-text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.markdown-report--strengths ul {
+  margin-top: 0.35rem;
+  margin-bottom: 1rem;
+  padding-left: 1.15rem;
+  border-left: 2px solid rgba(255, 215, 0, 0.22);
+}
+
+.markdown-report--strengths h3:nth-of-type(2) ~ ul {
+  border-left-color: rgba(255, 107, 74, 0.35);
+}
+
+.markdown-report--strengths li {
+  margin-top: 0.4rem;
+  line-height: 1.68;
+  padding-left: 0.15rem;
 }

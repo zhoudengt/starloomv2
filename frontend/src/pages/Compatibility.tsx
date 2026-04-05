@@ -52,7 +52,12 @@ export default function Compatibility() {
   const [p1Name, setP1Name] = useState('小明')
   const [p2Name, setP2Name] = useState('小红')
   const [p2Date, setP2Date] = useState('1993-11-22')
-  const [p2Gender, setP2Gender] = useState('male')
+  const [p2Time, setP2Time] = useState('')
+  const [p2PlaceName, setP2PlaceName] = useState('')
+  const [p2Lat, setP2Lat] = useState<number | null>(null)
+  const [p2Lon, setP2Lon] = useState<number | null>(null)
+  const [p2Tz, setP2Tz] = useState<string | null>(null)
+  const [p2Gender, setP2Gender] = useState<'female' | 'male' | ''>('male')
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
   const [doneId, setDoneId] = useState<string | null>(null)
@@ -99,6 +104,7 @@ export default function Compatibility() {
               birth_place_lon: p2.birth_place_lon,
               birth_tz: p2.birth_tz,
             },
+            order_id: orderId || undefined,
           },
           token,
           {
@@ -112,7 +118,7 @@ export default function Compatibility() {
         setLoading(false)
       }
     },
-    [token],
+    [token, orderId],
   )
 
   useEffect(() => {
@@ -171,7 +177,12 @@ export default function Compatibility() {
         setP1Name(p1.name)
         setP2Name(p2.name)
         setP2Date(p2.birth_date)
-        setP2Gender(p2.gender ?? 'male')
+        setP2Time(p2.birth_time ?? '')
+        setP2PlaceName(p2.birth_place_name ?? '')
+        setP2Lat(p2.birth_place_lat ?? null)
+        setP2Lon(p2.birth_place_lon ?? null)
+        setP2Tz(p2.birth_tz ?? null)
+        setP2Gender((p2.gender === 'female' || p2.gender === 'male' ? p2.gender : '') as 'female' | 'male' | '')
         await runStream(p1, p2)
       } catch {
         autoKickoff.current = false
@@ -191,8 +202,20 @@ export default function Compatibility() {
     birth_tz: p1Tz || undefined,
   })
 
+  const p2Payload = (): PersonOut => ({
+    name: p2Name,
+    birth_date: p2Date,
+    gender: p2Gender || undefined,
+    birth_time: p2Time || undefined,
+    birth_place_name: p2PlaceName || undefined,
+    birth_place_lat: p2Lat ?? undefined,
+    birth_place_lon: p2Lon ?? undefined,
+    birth_tz: p2Tz || undefined,
+  })
+
   const onPay = () => {
     const p1 = p1Payload()
+    const p2 = p2Payload()
     sessionStorage.setItem(
       'starloom_pay_compat',
       JSON.stringify({
@@ -206,13 +229,22 @@ export default function Compatibility() {
           ...(p1.birth_place_lon != null ? { birth_place_lon: p1.birth_place_lon } : {}),
           ...(p1.birth_tz ? { birth_tz: p1.birth_tz } : {}),
         },
-        person2: { name: p2Name, birth_date: p2Date, gender: p2Gender },
+        person2: {
+          name: p2.name,
+          birth_date: p2.birth_date,
+          ...(p2.gender ? { gender: p2.gender } : {}),
+          ...(p2.birth_time ? { birth_time: p2.birth_time } : {}),
+          ...(p2.birth_place_name ? { birth_place_name: p2.birth_place_name } : {}),
+          ...(p2.birth_place_lat != null ? { birth_place_lat: p2.birth_place_lat } : {}),
+          ...(p2.birth_place_lon != null ? { birth_place_lon: p2.birth_place_lon } : {}),
+          ...(p2.birth_tz ? { birth_tz: p2.birth_tz } : {}),
+        },
       }),
     )
     navigate('/payment?product=compatibility')
   }
 
-  const onRun = () => void runStream(p1Payload(), { name: p2Name, birth_date: p2Date, gender: p2Gender })
+  const onRun = () => void runStream(p1Payload(), p2Payload())
 
   const genLabel = new Date().toLocaleString('zh-CN', {
     year: 'numeric',
@@ -374,7 +406,37 @@ export default function Compatibility() {
               value={p2Date}
               onChange={(e) => setP2Date(e.target.value)}
             />
-            <select className="input-cosmic w-full text-sm" value={p2Gender} onChange={(e) => setP2Gender(e.target.value)}>
+            <p className="text-[9px] text-[var(--color-text-muted)]">出生时间（可选）</p>
+            <input
+              type="time"
+              className="input-cosmic w-full text-sm"
+              value={p2Time}
+              onChange={(e) => setP2Time(e.target.value)}
+            />
+            <p className="text-[9px] text-[var(--color-text-muted)]">出生城市（可选）</p>
+            <select
+              className="input-cosmic w-full text-sm"
+              value={p2PlaceName}
+              onChange={(e) => {
+                setP2PlaceName(e.target.value)
+                setP2Lat(null)
+                setP2Lon(null)
+                setP2Tz(null)
+              }}
+            >
+              <option value="">默认北京</option>
+              {CN_CITY_NAMES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <select
+              className="input-cosmic w-full text-sm"
+              value={p2Gender}
+              onChange={(e) => setP2Gender(e.target.value as 'female' | 'male' | '')}
+            >
+              <option value="">未选择</option>
               <option value="female">女</option>
               <option value="male">男</option>
             </select>
@@ -423,6 +485,7 @@ export default function Compatibility() {
             <MarkdownReport
               content={text}
               sectionImages={SECTION_IMAGES_COMPATIBILITY}
+              useCompatibilityCanonicalImages
               header={
                 <>
                   {splitHeader}

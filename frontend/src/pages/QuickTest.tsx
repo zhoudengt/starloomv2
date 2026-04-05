@@ -12,7 +12,7 @@ import RadarChart from '../components/RadarChart'
 import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
 import { CN_CITY_NAMES } from '../utils/cnCities'
-import { placementsFromBirth, sunSignFromDate, ZODIAC_CN } from '../utils/zodiacCalc'
+import { placementsFromBirth, sunSignFromDate, triadInsightBlurb, ZODIAC_CN } from '../utils/zodiacCalc'
 import { useBirthProfileStore } from '../stores/birthProfileStore'
 import { useUserStore } from '../stores/userStore'
 
@@ -418,25 +418,30 @@ export default function QuickTest() {
             <div className="pointer-events-none absolute inset-0 hex-grid-bg opacity-[0.28]" aria-hidden />
 
             {/* 星盘：动态底图 + 图上标注说明 */}
-            <div className="relative z-[1] mt-4 overflow-hidden rounded-2xl border border-white/[0.08] shadow-[0_0_0_1px_rgba(255,215,0,0.1)]">
-              <WheelCardAnimatedBg />
-              <img
-                src="/illustrations/section-astro-bg.png"
-                alt=""
-                className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover opacity-[0.32]"
-                aria-hidden
-              />
-              <div className="relative z-[1] px-2 pb-5 pt-4 sm:px-4">
+            <div className="relative z-[1] mt-4 rounded-2xl border border-white/[0.08] shadow-[0_0_0_1px_rgba(255,215,0,0.1)]">
+              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+                <WheelCardAnimatedBg />
+                <img
+                  src="/illustrations/section-astro-bg.png"
+                  alt=""
+                  className="absolute inset-0 z-0 h-full w-full object-cover opacity-[0.32]"
+                  aria-hidden
+                />
+              </div>
+              <div className="relative z-[1] overflow-visible px-2 pb-4 pt-4 sm:px-4">
                 <p className="text-center text-xs font-bold tracking-[0.22em] text-[#ffd700]/95">星盘分布</p>
                 <p className="mt-1.5 text-center text-[10px] leading-relaxed text-[var(--color-text-tertiary)]">
                   外圈为十二宫位简写；虚线连到文字说明太阳、月亮、上升的含义
                 </p>
-                <div className="mt-1 flex justify-center overflow-x-auto">
+                <p className="mt-2 text-center text-[10px] leading-snug font-medium text-[#fff0d4] drop-shadow-[0_0_14px_rgba(255,215,120,0.22)] sm:px-1">
+                  {triadInsightBlurb(placements.sun, placements.moon, placements.rising)}
+                </p>
+                <div className="mt-2 flex justify-center overflow-x-auto overflow-y-visible">
                   <BirthChartWheel
                     sun={placements.sun}
                     moon={placements.moon}
                     rising={placements.rising}
-                    size={240}
+                    size={215}
                     showLegend={false}
                     annotations={{
                       sun: { label: `太阳 ${placements.sunCn}`, hint: '核心性格与自我意识' },
@@ -449,20 +454,22 @@ export default function QuickTest() {
             </div>
 
             {/* 五维雷达：动态底图 + 维度分数与说明在图上 */}
-            <div className="relative z-[1] mt-6 overflow-hidden rounded-2xl border border-white/[0.08] shadow-[0_0_0_1px_rgba(255,215,0,0.12)]">
-              <RadarCardAnimatedBg />
-              <img
-                src="/illustrations/section-radar-bg.png"
-                alt=""
-                className="pointer-events-none absolute inset-0 z-0 h-full w-full object-cover opacity-[0.32]"
-                aria-hidden
-              />
-              <div className="relative z-[1] px-2 pb-5 pt-4 sm:px-4">
+            <div className="relative z-[1] mt-6 rounded-2xl border border-white/[0.08] shadow-[0_0_0_1px_rgba(255,215,0,0.12)]">
+              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
+                <RadarCardAnimatedBg />
+                <img
+                  src="/illustrations/section-radar-bg.png"
+                  alt=""
+                  className="absolute inset-0 z-0 h-full w-full object-cover opacity-[0.32]"
+                  aria-hidden
+                />
+              </div>
+              <div className="relative z-[1] overflow-visible px-2 pb-5 pt-4 sm:px-4">
                 <p className="text-center text-xs font-bold tracking-[0.22em] text-[#ffd700]/95">五维能量分布</p>
                 <p className="mt-1.5 text-center text-[10px] leading-relaxed text-[var(--color-text-tertiary)]">
                   各顶点旁为分数与参考解读；面积越大该维度能量越强
                 </p>
-                <div className="mt-2 flex justify-center">
+                <div className="mt-4 flex w-full justify-center overflow-visible px-0.5 pb-1">
                   <RadarChart
                     dimensions={d.dimensions}
                     size={300}
@@ -581,28 +588,31 @@ export default function QuickTest() {
 
         <div className="space-y-5 p-5">
           <div className="grid grid-cols-2 gap-3">
-            <div>
+            <div className="min-w-0">
               <label className="text-xs font-bold text-[#a78bfa]">生日</label>
-              <div className="relative mt-1.5 flex items-center rounded-xl border-2 border-[#8b5cf6]/35 bg-[#08091a]/70 px-3 py-2.5">
+              <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
+                用于太阳星座与行星黄经，作为星盘计算基础
+              </p>
+              <div className="relative mt-1.5 flex min-w-0 items-center overflow-hidden rounded-xl border-2 border-[#8b5cf6]/35 bg-[#08091a]/70 px-3 py-2.5">
                 <Icon name="calendar" size={20} className="mr-2 shrink-0 text-[#a78bfa]" />
                 <input
                   type="date"
-                  className="input-cosmic flex-1 border-0 bg-transparent p-0 text-sm focus-ring-violet"
+                  className="input-cosmic input-date-cosmic min-w-0 w-full max-w-full flex-1 border-0 bg-transparent p-0 text-sm focus-ring-violet"
                   value={birthDate}
                   onChange={(e) => setBirthDate(e.target.value)}
                 />
               </div>
             </div>
-            <div>
+            <div className="min-w-0">
               <label className="text-xs font-bold text-[#22d3ee]">出生时间</label>
               <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
                 用于上升点与十二宫位计算，不填则按当日正午近似
               </p>
-              <div className="relative mt-1.5 flex items-center rounded-xl border-2 border-[#00e5ff]/30 bg-[#08091a]/70 px-3 py-2.5">
+              <div className="relative mt-1.5 flex min-w-0 items-center overflow-hidden rounded-xl border-2 border-[#00e5ff]/30 bg-[#08091a]/70 px-3 py-2.5">
                 <Icon name="sparkle" size={20} className="mr-2 shrink-0 text-[#00e5ff]" />
                 <input
                   type="time"
-                  className="input-cosmic flex-1 border-0 bg-transparent p-0 text-sm focus-ring-cyan"
+                  className="input-cosmic min-w-0 w-full max-w-full flex-1 border-0 bg-transparent p-0 text-sm focus-ring-cyan"
                   value={birthTime}
                   onChange={(e) => setBirthTime(e.target.value)}
                 />

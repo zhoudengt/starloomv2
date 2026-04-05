@@ -17,9 +17,6 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     jwt_expire_days: int = 7
 
-    # Demo: skip paid-order checks and auto-use demo orders (never enable in production)
-    demo_mode: bool = True
-
     db_host: str = "localhost"
     db_port: int = 3307
     db_name: str = "starloom"

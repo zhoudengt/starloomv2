@@ -13,3 +13,31 @@ api.interceptors.request.use((config) => {
   }
   return config
 })
+
+/** FastAPI: `{ "detail": "..." }` or validation array — surface readable message instead of generic axios text */
+function messageFromFastApiBody(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object') return undefined
+  const detail = (data as { detail?: unknown }).detail
+  if (typeof detail === 'string') return detail
+  if (Array.isArray(detail)) {
+    const parts = detail.map((item) => {
+      if (typeof item === 'string') return item
+      if (item && typeof item === 'object' && 'msg' in item) return String((item as { msg: string }).msg)
+      return ''
+    })
+    const s = parts.filter(Boolean).join(' ')
+    return s || undefined
+  }
+  return undefined
+}
+
+api.interceptors.response.use(
+  (r) => r,
+  (err: import('axios').AxiosError<{ detail?: unknown }>) => {
+    const msg = messageFromFastApiBody(err.response?.data)
+    if (msg) {
+      err.message = msg
+    }
+    return Promise.reject(err)
+  },
+)

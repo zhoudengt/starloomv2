@@ -185,11 +185,11 @@ export default function Home() {
           />
           <PayButton
             title="年度运势参考"
-            subtitle="全年节奏 · 分季度提示"
+            subtitle="七章结构 · 全年节奏与月度提示"
             price="0.30"
             to="/payment?product=annual"
             accent="annual"
-            chapterCount={5}
+            chapterCount={7}
           />
         </motion.section>
 

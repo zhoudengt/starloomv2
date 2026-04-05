@@ -74,6 +74,7 @@ export default function AnnualReport() {
             birth_place_lat: st.birthPlaceLat ?? undefined,
             birth_place_lon: st.birthPlaceLon ?? undefined,
             birth_tz: st.birthTz || undefined,
+            order_id: orderId || undefined,
           },
           token,
           {
@@ -87,7 +88,7 @@ export default function AnnualReport() {
         setLoading(false)
       }
     },
-    [token],
+    [token, orderId],
   )
 
   useEffect(() => {
@@ -165,55 +166,65 @@ export default function AnnualReport() {
       </div>
 
       <div className="card-elevated mt-6 space-y-3 p-4 text-sm">
-        <label className="block">
-          <span className="text-[var(--color-text-secondary)]">出生日期</span>
-          <input
-            type="date"
-            className="input-cosmic mt-1"
-            value={birthDate}
-            onChange={(e) => setBirthDate(e.target.value)}
-          />
-        </label>
-        <label className="block">
-          <span className="text-[var(--color-text-secondary)]">出生时间（可选）</span>
-          <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">
-            用于上升点与宫位参考，不填则按当日正午近似
-          </p>
-          <input
-            type="time"
-            className="input-cosmic mt-1"
-            value={birthTime}
-            onChange={(e) => setBirthTime(e.target.value)}
-          />
-        </label>
-        <label className="block">
-          <span className="text-[var(--color-text-secondary)]">出生城市（可选）</span>
-          <p className="mt-0.5 text-[10px] text-[var(--color-text-muted)]">用于经纬度与宫位计算，不选则默认北京</p>
-          <select
-            className="input-cosmic mt-1"
-            value={birthPlaceName}
-            onChange={(e) => setBirthPlaceName(e.target.value)}
-          >
-            <option value="">默认北京</option>
-            {CN_CITY_NAMES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-[var(--color-text-secondary)]">性别（可选，影响配图）</span>
-          <select
-            className="input-cosmic mt-1"
-            value={gender}
-            onChange={(e) => setGender(e.target.value as 'female' | 'male' | '')}
-          >
-            <option value="">未选择</option>
-            <option value="female">女</option>
-            <option value="male">男</option>
-          </select>
-        </label>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-4">
+          <label className="block min-w-0">
+            <span className="text-[var(--color-text-secondary)]">出生日期</span>
+            <p className="mt-0.5 min-h-[2.25rem] text-[10px] leading-snug text-[var(--color-text-muted)]">
+              公历日期，用于太阳星座与年运主题
+            </p>
+            <input
+              type="date"
+              className="input-cosmic mt-1 w-full min-w-0"
+              value={birthDate}
+              onChange={(e) => setBirthDate(e.target.value)}
+            />
+          </label>
+          <label className="block min-w-0">
+            <span className="text-[var(--color-text-secondary)]">出生时间（可选）</span>
+            <p className="mt-0.5 min-h-[2.25rem] text-[10px] leading-snug text-[var(--color-text-muted)]">
+              用于上升点与宫位参考，不填则按当日正午近似
+            </p>
+            <input
+              type="time"
+              className="input-cosmic mt-1 w-full min-w-0"
+              value={birthTime}
+              onChange={(e) => setBirthTime(e.target.value)}
+            />
+          </label>
+          <label className="block min-w-0">
+            <span className="text-[var(--color-text-secondary)]">出生城市（可选）</span>
+            <p className="mt-0.5 min-h-[2.25rem] text-[10px] leading-snug text-[var(--color-text-muted)]">
+              用于经纬度与宫位计算，不选则默认北京
+            </p>
+            <select
+              className="input-cosmic mt-1 w-full min-w-0"
+              value={birthPlaceName}
+              onChange={(e) => setBirthPlaceName(e.target.value)}
+            >
+              <option value="">默认北京</option>
+              {CN_CITY_NAMES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block min-w-0">
+            <span className="text-[var(--color-text-secondary)]">性别（可选，影响配图）</span>
+            <p className="mt-0.5 min-h-[2.25rem] text-[10px] leading-snug text-[var(--color-text-muted)]">
+              影响报告章节插图的性别化配图
+            </p>
+            <select
+              className="input-cosmic mt-1 w-full min-w-0"
+              value={gender}
+              onChange={(e) => setGender(e.target.value as 'female' | 'male' | '')}
+            >
+              <option value="">未选择</option>
+              <option value="female">女</option>
+              <option value="male">男</option>
+            </select>
+          </label>
+        </div>
         <label className="block">
           <span className="text-[var(--color-text-secondary)]">年份（仅今年与明年）</span>
           <select
@@ -272,6 +283,7 @@ export default function AnnualReport() {
             <MarkdownReport
               content={text}
               sectionImages={SECTION_IMAGES_ANNUAL}
+              useAnnualCanonicalImages
               gender={gender as ReportGender}
               header={
                 <ReportCertificateHeader

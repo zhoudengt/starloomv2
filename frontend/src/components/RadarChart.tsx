@@ -54,16 +54,24 @@ export default function RadarChart({
     return pts.join(' ')
   })
 
-  const lr = r + (hasHints ? 58 : 24)
+  const lr = r + (hasHints ? 52 : 24)
   const fsLabel = Math.max(10, size * 0.042)
   const fsScore = Math.max(11, size * 0.045)
   const fsHint = Math.max(7.5, size * 0.028)
   const gapLabelScore = Math.max(8, fsLabel * 0.45)
   const gapScoreHint = Math.max(10, fsScore * 0.35)
 
+  /** 负向 viewBox：原生坐标约在 0…size 内，标签会略超出左右上，约 40px 边距即可 */
+  const pad = hasHints ? 42 : 22
+
   return (
-    <div className="flex flex-col items-center">
-      <svg width={size} height={size} className="overflow-visible">
+    <div className="flex max-w-full flex-col items-center">
+      <svg
+        width={size}
+        height={size}
+        viewBox={`${-pad} ${-pad} ${size + 2 * pad} ${size + 2 * pad}`}
+        className="max-h-[min(92vw,380px)] w-full max-w-[min(92vw,380px)]"
+      >
         <defs>
           <linearGradient id={fillGradId} x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#f0c75e" stopOpacity="0.45" />
@@ -103,9 +111,11 @@ export default function RadarChart({
           const col = hintColors?.[k] ?? DEFAULT_HINT_COLORS[k]
           const x = cx + lr * Math.cos(angle(i))
           const y = cy + lr * Math.sin(angle(i))
-          const yLabel = hint ? y - fsScore - gapLabelScore : y
-          const yScore = y
-          const yHint = y + fsScore + gapScoreHint
+          /** 顶部顶点文字上移易与区块标题重叠，整体略下移 */
+          const dyTop = i === 0 && hint ? 16 : 0
+          const yLabel = (hint ? y - fsScore - gapLabelScore : y) + dyTop
+          const yScore = y + dyTop
+          const yHint = y + fsScore + gapScoreHint + dyTop
           return (
             <g key={label}>
               <text

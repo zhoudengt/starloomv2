@@ -58,12 +58,12 @@ export default function BirthChartWheel({
   const outerCirc = 2 * Math.PI * rOuter
   const dashOffset = outerCirc * (1 - Math.min(1, Math.max(0, drawProgress)))
 
-  const pad = annotations ? size * 0.4 : 0
+  const pad = annotations ? size * 0.31 : 0
   const vb = annotations ? `${-pad} ${-pad} ${size + 2 * pad} ${size + 2 * pad}` : `0 0 ${size} ${size}`
   const svgW = annotations ? size + 2 * pad : size
   const svgH = annotations ? size + 2 * pad : size
 
-  const labelR = rOuter + size * 0.18
+  const labelR = rOuter + size * 0.165
 
   return (
     <div className={`relative ${className}`}>

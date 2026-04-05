@@ -122,8 +122,8 @@ export default function Chat() {
           <h1 className="mt-2 font-serif text-2xl text-[var(--color-brand-gold)]">AI 星座顾问</h1>
           <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-tertiary)]">
             {orderId
-              ? '已关联本笔订单，可直接对话（正式环境需先完成支付）。'
-              : '未携带订单时，正式环境需先购买对话；演示模式可在后端开启后免单。'}
+              ? '已关联本笔订单，可直接对话（请先完成支付）。'
+              : '未携带订单时请从支付完成页进入，或先购买 AI 顾问对话。'}
           </p>
         </div>
       </div>
@@ -213,7 +213,7 @@ export default function Chat() {
       {!orderId ? (
         <Link
           to="/payment?product=chat"
-          className="mt-3 block text-center text-xs text-[var(--color-text-muted)] underline"
+          className="btn-glow relative mt-4 flex w-full items-center justify-center rounded-xl py-3.5 text-sm font-semibold"
         >
           购买 AI 顾问对话 ¥0.10
         </Link>

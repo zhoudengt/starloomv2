@@ -14,7 +14,6 @@ from app.database import get_db
 from app.deps import get_current_user
 from app.models.order import Order, OrderStatus, ProductType
 from app.models.user import User
-from app.services.demo_order_service import get_or_create_demo_paid_order
 from app.services.llm_service import LLMServiceFactory, stream_with_fallback
 from app.utils.stream_helper import sse_line
 
@@ -28,21 +27,18 @@ async def chat_advisor(
     user: User = Depends(get_current_user),
 ):
     settings = get_settings()
-    if settings.demo_mode:
-        await get_or_create_demo_paid_order(db, user, ProductType.chat)
-    else:
-        if not body.order_id:
-            raise HTTPException(status_code=400, detail="order_id required for paid chat")
-        result = await db.execute(
-            select(Order).where(
-                Order.order_id == body.order_id,
-                Order.user_id == user.id,
-                Order.product_type == ProductType.chat,
-            )
+    if not body.order_id:
+        raise HTTPException(status_code=400, detail="order_id required for paid chat")
+    result = await db.execute(
+        select(Order).where(
+            Order.order_id == body.order_id,
+            Order.user_id == user.id,
+            Order.product_type == ProductType.chat,
         )
-        order = result.scalar_one_or_none()
-        if not order or order.status != OrderStatus.paid:
-            raise HTTPException(status_code=402, detail="Payment required for chat")
+    )
+    order = result.scalar_one_or_none()
+    if not order or order.status != OrderStatus.paid:
+        raise HTTPException(status_code=402, detail="Payment required for chat")
 
     primary = LLMServiceFactory.for_chat(settings)
     fallback = (

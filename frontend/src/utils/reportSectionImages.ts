@@ -48,6 +48,70 @@ export function resolveSectionImage(title: string, keywordToSrc: Record<string, 
   return undefined
 }
 
+/** 个人性格报告七章正式标题（与 BlurLock / ReportGeneratingShell 一致）— 每章对应唯一底图。 */
+export const PERSONALITY_CANONICAL_TITLES = [
+  '太阳星座深度解读',
+  '性格优势与挑战',
+  '感情与亲密关系',
+  '事业与财富节奏',
+  '人际关系与社交',
+  '年度成长建议',
+  '专属行动清单',
+] as const
+
+/** 七章标题 → 唯一 section 插图（避免两章共用同一张）。 */
+export const PERSONALITY_CANONICAL_IMAGES: Record<(typeof PERSONALITY_CANONICAL_TITLES)[number], string> = {
+  太阳星座深度解读: S('section-personality.png'),
+  性格优势与挑战: S('section-growth.png'),
+  感情与亲密关系: S('section-love.png'),
+  事业与财富节奏: S('section-career.png'),
+  人际关系与社交: S('section-tone.png'),
+  年度成长建议: S('section-overview.png'),
+  专属行动清单: S('section-health.png'),
+}
+
+/**
+ * 规范化性格报告章节标题，用于精确/前缀匹配。
+ */
+export function normalizePersonalitySectionTitle(title: string): string {
+  let t = stripLeadingSectionIndex(title)
+  t = t.replace(/\s+/g, ' ').trim()
+  t = t.replace(/[（(][^）)]*[）)]\s*$/u, '').trim()
+  return t
+}
+
+/**
+ * 性格报告专用：优先完全匹配七章标题，再前缀匹配，最后才用宽松子串匹配（仅长 key），
+ * 避免「事业」「感情」等短词误命中。
+ */
+export function resolvePersonalitySectionImage(title: string): string | undefined {
+  const n = normalizePersonalitySectionTitle(title)
+  const canonical = PERSONALITY_CANONICAL_IMAGES as Record<string, string>
+  if (canonical[n]) return canonical[n]
+
+  const ordered = [...PERSONALITY_CANONICAL_TITLES].sort((a, b) => b.length - a.length)
+  for (const k of ordered) {
+    if (n.startsWith(k)) return canonical[k]
+  }
+
+  const legacy = SECTION_IMAGES_PERSONALITY
+  const longKeys = Object.keys(legacy)
+    .filter((k) => k.length >= 5)
+    .sort((a, b) => b.length - a.length)
+  for (const k of longKeys) {
+    if (n.includes(k)) return legacy[k]
+  }
+  for (const k of Object.keys(legacy).sort((a, b) => b.length - a.length)) {
+    if (n.includes(k)) return legacy[k]
+  }
+  return undefined
+}
+
+/** 是否为「性格优势与挑战」章节（用于专项样式）。 */
+export function isPersonalityStrengthsSectionTitle(title: string): boolean {
+  return normalizePersonalitySectionTitle(title) === '性格优势与挑战'
+}
+
 /**
  * Swap section-* base PNG to gendered filename when the theme supports it.
  * `gender` omitted or `'male'` keeps default male art; `''` uses neutral assets.
@@ -148,6 +212,63 @@ export const SECTION_IMAGES_ANNUAL: Record<string, string> = {
   成长: S('section-growth.png'),
   建议: S('section-growth.png'),
   复盘: S('section-growth.png'),
+  感情与人际: S('section-love.png'),
+  财务与资源: S('section-finance.png'),
+  健康与节奏: S('section-health.png'),
+  月度提示: S('section-overview.png'),
+  成长建议: S('section-growth.png'),
+}
+
+/** 年度运势七章正式标题（与 ReportGeneratingShell / 提示词一致）— 每章对应唯一底图。 */
+export const ANNUAL_CANONICAL_TITLES = [
+  '整体基调',
+  '事业与学业',
+  '感情与人际',
+  '财务与资源',
+  '健康与节奏',
+  '月度提示',
+  '成长建议',
+] as const
+
+export const ANNUAL_CANONICAL_IMAGES: Record<(typeof ANNUAL_CANONICAL_TITLES)[number], string> = {
+  整体基调: S('section-tone.png'),
+  事业与学业: S('section-career.png'),
+  感情与人际: S('section-love.png'),
+  财务与资源: S('section-finance.png'),
+  健康与节奏: S('section-health.png'),
+  月度提示: S('section-overview.png'),
+  成长建议: S('section-growth.png'),
+}
+
+export function normalizeAnnualSectionTitle(title: string): string {
+  let t = stripLeadingSectionIndex(title)
+  t = t.replace(/\s+/g, ' ').trim()
+  t = t.replace(/[（(][^）)]*[）)]\s*$/u, '').trim()
+  return t
+}
+
+/** 年度运势：优先完全匹配七章标题，再前缀匹配，最后 legacy SECTION_IMAGES_ANNUAL。 */
+export function resolveAnnualSectionImage(title: string): string | undefined {
+  const n = normalizeAnnualSectionTitle(title)
+  const canonical = ANNUAL_CANONICAL_IMAGES as Record<string, string>
+  if (canonical[n]) return canonical[n]
+
+  const ordered = [...ANNUAL_CANONICAL_TITLES].sort((a, b) => b.length - a.length)
+  for (const k of ordered) {
+    if (n.startsWith(k)) return canonical[k]
+  }
+
+  const legacy = SECTION_IMAGES_ANNUAL
+  const longKeys = Object.keys(legacy)
+    .filter((k) => k.length >= 5)
+    .sort((a, b) => b.length - a.length)
+  for (const k of longKeys) {
+    if (n.includes(k)) return legacy[k]
+  }
+  for (const k of Object.keys(legacy).sort((a, b) => b.length - a.length)) {
+    if (n.includes(k)) return legacy[k]
+  }
+  return undefined
 }
 
 /**
@@ -157,9 +278,13 @@ export const SECTION_IMAGES_ANNUAL: Record<string, string> = {
 export const SECTION_IMAGES_PERSONALITY: Record<string, string> = {
   成长建议与行动清单: S('section-health.png'),
   太阳星座与核心动机: S('section-personality.png'),
+  太阳星座深度解读: S('section-personality.png'),
   性格优势与挑战: S('section-growth.png'),
   感情与亲密关系: S('section-love.png'),
   事业与财富节奏: S('section-career.png'),
+  人际关系与社交: S('section-tone.png'),
+  年度成长建议: S('section-overview.png'),
+  专属行动清单: S('section-health.png'),
   太阳星座解读: S('section-personality.png'),
   性格优势: S('section-growth.png'),
   性格挑战: S('section-tone.png'),
@@ -193,9 +318,58 @@ export const SECTION_IMAGES_COMPATIBILITY: Record<string, string> = {
   摩擦: S('section-compat-friction.png'),
   冲突: S('section-compat-friction.png'),
   双人能量与节奏: S('section-compat-overview.png'),
-  沟通与相处模式: S('section-compat-chemistry.png'),
+  沟通与相处模式: S('section-compat-secrets.png'),
   长期关系参考: S('section-compat-sweet.png'),
   冲突与修复建议: S('section-compat-friction.png'),
+}
+
+/** 配对分析报告六章正式标题 — 每章唯一底图（与 ReportGeneratingShell / 提示词一致）。 */
+export const COMPATIBILITY_CANONICAL_TITLES = [
+  '缘分指数',
+  '你们的化学反应',
+  '双人能量与节奏',
+  '沟通与相处模式',
+  '冲突与修复建议',
+  '长期关系参考',
+] as const
+
+export const COMPATIBILITY_CANONICAL_IMAGES: Record<(typeof COMPATIBILITY_CANONICAL_TITLES)[number], string> = {
+  缘分指数: S('section-compat-fate.png'),
+  你们的化学反应: S('section-compat-chemistry.png'),
+  双人能量与节奏: S('section-compat-overview.png'),
+  沟通与相处模式: S('section-compat-secrets.png'),
+  冲突与修复建议: S('section-compat-friction.png'),
+  长期关系参考: S('section-compat-sweet.png'),
+}
+
+export function normalizeCompatibilitySectionTitle(title: string): string {
+  let t = stripLeadingSectionIndex(title)
+  t = t.replace(/\s+/g, ' ').trim()
+  t = t.replace(/[（(][^）)]*[）)]\s*$/u, '').trim()
+  return t
+}
+
+export function resolveCompatibilitySectionImage(title: string): string | undefined {
+  const n = normalizeCompatibilitySectionTitle(title)
+  const canonical = COMPATIBILITY_CANONICAL_IMAGES as Record<string, string>
+  if (canonical[n]) return canonical[n]
+
+  const ordered = [...COMPATIBILITY_CANONICAL_TITLES].sort((a, b) => b.length - a.length)
+  for (const k of ordered) {
+    if (n.startsWith(k)) return canonical[k]
+  }
+
+  const legacy = SECTION_IMAGES_COMPATIBILITY
+  const longKeys = Object.keys(legacy)
+    .filter((k) => k.length >= 5)
+    .sort((a, b) => b.length - a.length)
+  for (const k of longKeys) {
+    if (n.includes(k)) return legacy[k]
+  }
+  for (const k of Object.keys(legacy).sort((a, b) => b.length - a.length)) {
+    if (n.includes(k)) return legacy[k]
+  }
+  return undefined
 }
 
 /** 天象事件参考 */

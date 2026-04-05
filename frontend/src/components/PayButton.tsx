@@ -36,7 +36,7 @@ const ACCENT: Record<
   },
   annual: {
     stripe: 'from-[#00e5ff] via-[#22d3ee] to-[#ffd700]',
-    preview: '全年节奏 · 季度提示',
+    preview: '七章结构 · 全年节奏与月度提示',
     border: 'border-cyan-400/35 hover:border-cyan-300/60',
     glow: 'hover:shadow-[0_0_28px_rgba(0,229,255,0.28)]',
     priceBg: 'from-[#06b6d4] to-[#0891b2]',

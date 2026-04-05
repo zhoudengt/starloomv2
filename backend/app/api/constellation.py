@@ -44,7 +44,6 @@ from app.services.astro_service import (
     compute_transits,
 )
 from app.services.astro_service import compute_annual_summary as astro_compute_annual_summary
-from app.services.demo_order_service import get_or_create_demo_paid_order
 from app.services.growth_helpers import get_or_create_growth_profile, grant_zodiac_card_if_needed
 from app.services.daily_fortune_core import normalize_daily_payload, wrap_daily_response
 from app.services.llm_service import (
@@ -257,9 +256,6 @@ async def _resolve_paid_order(
     order_id: Optional[str],
     product: ProductType,
 ) -> Order:
-    settings = get_settings()
-    if settings.demo_mode:
-        return await get_or_create_demo_paid_order(db, user, product)
     if not order_id or not str(order_id).strip():
         raise HTTPException(status_code=400, detail="order_id required")
     result = await db.execute(
@@ -292,6 +288,7 @@ async def report_personality(
     user: User = Depends(get_current_user),
 ):
     order = await _resolve_paid_order(db, user, body.order_id, ProductType.personality)
+    await db.refresh(user)
     bd = parse_birth_date_http(body.birth_date)
     sign = sun_sign_from_date(bd)
     meta = get_sign_meta(sign) or {}
@@ -451,6 +448,7 @@ async def report_annual(
     user: User = Depends(get_current_user),
 ):
     order = await _resolve_paid_order(db, user, body.order_id, ProductType.annual)
+    await db.refresh(user)
     bd = parse_birth_date_http(body.birth_date)
     sign = sun_sign_from_date(bd)
     meta = get_sign_meta(sign) or {}
@@ -541,6 +539,7 @@ async def report_personality_dlc(
         raise HTTPException(status_code=400, detail="pack must be career|love|growth")
     product = _PACK_TO_PRODUCT[pack]
     order = await _resolve_paid_order(db, user, body.order_id, product)
+    await db.refresh(user)
     bd = parse_birth_date_http(body.birth_date)
     sign = sun_sign_from_date(bd)
     meta = get_sign_meta(sign) or {}
@@ -613,6 +612,7 @@ async def report_astro_event(
     user: User = Depends(get_current_user),
 ):
     order = await _resolve_paid_order(db, user, body.order_id, ProductType.astro_event)
+    await db.refresh(user)
     bd = parse_birth_date_http(body.birth_date)
     sign = sun_sign_from_date(bd)
     meta = get_sign_meta(sign) or {}
@@ -675,6 +675,7 @@ async def season_today(
     user: User = Depends(get_current_user),
 ) -> dict[str, Any]:
     gp = await get_or_create_growth_profile(db, user)
+    await db.refresh(user)
     if not gp.season_pass_until or gp.season_pass_until < datetime.utcnow():
         raise HTTPException(status_code=402, detail="需要星运月卡")
     if not user.birth_date:

@@ -164,6 +164,14 @@ npm run dev
 
 浏览器打开 `http://localhost:5173`，`/api` 由 Vite 代理到 `http://127.0.0.1:8000`（见 `frontend/vite.config.ts`）。
 
+### 本地真实支付联调
+
+1. `backend/.env` 中配置 **`XUNHUPAY_*`**、**公网可访问的 `XUNHUPAY_NOTIFY_URL`**（本地可用 ngrok/cloudflared 指向本机 `8000`），**`FRONTEND_URL=http://localhost:5173`** 与浏览器一致。
+2. 启动后端与前端（见上文）。
+3. 浏览器登录后打开支付页，点「去支付」：应出现虎皮椒真实收银台/二维码；支付完成后轮询或回调将订单标为已支付。
+
+无演示假支付：未配齐虎皮椒时 `POST /payment/create` 会返回 503，属预期。
+
 ### 可选：本机用 Docker 模拟生产（非必需）
 
 若需要本地一次性验证「静态站 + Nginx + 容器后端」：
@@ -239,7 +247,7 @@ bash scripts/rsync-to-server.sh
 ### 1. 手动步骤（与脚本等价）
 
 1. 安装 Docker / Compose（脚本 [`scripts/deploy-on-server.sh`](scripts/deploy-on-server.sh) 在无 Docker 时会尝试调用官方 `get.docker.com` 安装脚本；亦可自行按发行版安装）。
-2. `cp backend/.env.example backend/.env`，生产项：`APP_ENV=production`、`DEMO_MODE=false`、`FRONTEND_URL`、`CORS_ORIGINS`、`XUNHUPAY_NOTIFY_URL`、密钥等；**Docker 内** `DB_HOST=starloom-mysql`、`DB_PORT=3306`、`REDIS_HOST=starloom-redis`、`REDIS_PORT=6379`（与 [`backend/.env.example`](backend/.env.example) 一致）。
+2. `cp backend/.env.example backend/.env`，生产项：`APP_ENV=production`、`FRONTEND_URL`、`CORS_ORIGINS`、`XUNHUPAY_NOTIFY_URL`、密钥等；**Docker 内** `DB_HOST=starloom-mysql`、`DB_PORT=3306`、`REDIS_HOST=starloom-redis`、`REDIS_PORT=6379`（与 [`backend/.env.example`](backend/.env.example) 一致）。
 3. `cp .env.example .env`：设置 `DB_PASSWORD`（与 `backend/.env` 里 `DB_PASSWORD` 一致）、`DOMAIN`；证书可先使用脚本生成的 [`deploy/ssl/`](deploy/ssl/)，或配置 `SSL_FULLCHAIN_HOST` / `SSL_PRIVKEY_HOST` 指向 Let’s Encrypt 路径。
 4. `cd frontend && npm ci && npm run build`，再 `docker compose -f docker-compose.prod.yml up -d --build`（与一键脚本相同）。
 5. 生产 compose 中 MySQL/Redis 仅 `127.0.0.1`，后端不暴露宿主机端口，经 Nginx 对外。
@@ -259,10 +267,9 @@ bash scripts/rsync-to-server.sh
 
 ---
 
-## 百炼 / 演示模式
+## 百炼
 
 - `LLM_PLATFORM=bailian` 时使用百炼应用；系统提示词多在控制台配置，后端 `app/prompts/` 拼接用户参数。
-- 开发联调：`DEMO_MODE=true` 可跳过部分支付校验；**上线前务必 `DEMO_MODE=false`**。
 
 ---
 

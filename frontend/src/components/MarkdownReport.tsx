@@ -4,28 +4,55 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import {
   genderizeSectionImagePath,
+  isPersonalityStrengthsSectionTitle,
+  resolveAnnualSectionImage,
+  resolveCompatibilitySectionImage,
+  resolvePersonalitySectionImage,
   resolveSectionImage,
   stripLeadingSectionIndex,
   type ReportGender,
 } from '../utils/reportSectionImages'
 
+/**
+ * Split markdown on `## ` headings. Lines before the first `## ` are **preamble** and are
+ * merged into the first section body (so UI never shows a fake "概述" block from pre-heading text).
+ */
 function splitSections(md: string): { title: string; body: string }[] {
   const lines = md.split('\n')
+  const firstH2 = lines.findIndex((l) => l.startsWith('## '))
+  if (firstH2 === -1) {
+    const body = md.trim()
+    if (!body) return []
+    return [{ title: '正文', body }]
+  }
+  const preambleText = firstH2 > 0 ? lines.slice(0, firstH2).join('\n').trim() : ''
+  const fromFirstH2 = lines.slice(firstH2)
   const sections: { title: string; body: string }[] = []
-  let curTitle = '概述'
+  let curTitle = ''
   let buf: string[] = []
-  for (const line of lines) {
+  let isFirstSection = true
+
+  const flush = () => {
+    if (!curTitle) return
+    let body = buf.join('\n').trim()
+    if (isFirstSection && preambleText) {
+      body = preambleText + (body ? `\n\n${body}` : '')
+    }
+    isFirstSection = false
+    sections.push({ title: curTitle, body })
+    curTitle = ''
+    buf = []
+  }
+
+  for (const line of fromFirstH2) {
     if (line.startsWith('## ')) {
-      if (buf.length) sections.push({ title: curTitle, body: buf.join('\n').trim() })
+      if (curTitle) flush()
       curTitle = line.replace(/^##\s+/, '').trim()
-      buf = []
     } else {
       buf.push(line)
     }
   }
-  if (buf.length || sections.length === 0) {
-    sections.push({ title: curTitle, body: buf.join('\n').trim() || md })
-  }
+  if (curTitle) flush()
   return sections
 }
 
@@ -36,6 +63,12 @@ export default function MarkdownReport({
   header,
   sectionImages,
   gender,
+  /** 性格报告：七章标题精确匹配插图，避免子串误配与重复用图 */
+  usePersonalityCanonicalImages = false,
+  /** 配对报告：六章标题精确匹配双人插图 */
+  useCompatibilityCanonicalImages = false,
+  /** 年度运势：七章标题精确匹配插图 */
+  useAnnualCanonicalImages = false,
 }: {
   content: string
   header?: ReactNode
@@ -43,6 +76,9 @@ export default function MarkdownReport({
   sectionImages?: SectionImageMap
   /** When set, gendered section-* assets are selected (male default if omitted). */
   gender?: ReportGender
+  usePersonalityCanonicalImages?: boolean
+  useCompatibilityCanonicalImages?: boolean
+  useAnnualCanonicalImages?: boolean
 }) {
   const sections = useMemo(() => splitSections(content), [content])
   const [open, setOpen] = useState<Record<number, boolean>>(() =>
@@ -79,10 +115,17 @@ export default function MarkdownReport({
             <span className="text-[var(--color-text-muted)]">{open[i] ? '−' : '+'}</span>
           </button>
           {open[i] && (() => {
-            const src = genderizeSectionImagePath(
-              sectionImages != null ? resolveSectionImage(sec.title, sectionImages) : undefined,
-              gender,
-            )
+            const rawSrc = usePersonalityCanonicalImages
+              ? resolvePersonalitySectionImage(sec.title)
+              : useCompatibilityCanonicalImages
+                ? resolveCompatibilitySectionImage(sec.title)
+                : useAnnualCanonicalImages
+                  ? resolveAnnualSectionImage(sec.title)
+                  : sectionImages != null
+                    ? resolveSectionImage(sec.title, sectionImages)
+                    : undefined
+            const src = genderizeSectionImagePath(rawSrc, gender)
+            const strengths = isPersonalityStrengthsSectionTitle(sec.title)
             return (
               <div className="relative border-t border-white/[0.06]">
                 {src ? (
@@ -100,7 +143,9 @@ export default function MarkdownReport({
                     />
                   </div>
                 ) : null}
-                <div className="markdown-report px-4 py-4 text-[15px] leading-[1.7] text-[var(--color-text-secondary)] [&_a]:text-[var(--color-brand-gold)] [&_h3]:mt-3 [&_h3]:text-[var(--color-text-primary)] [&_li]:my-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_strong]:text-[var(--color-text-primary)] [&_ul]:list-disc [&_ul]:pl-5">
+                <div
+                  className={`markdown-report px-4 py-4 text-[15px] leading-[1.7] text-[var(--color-text-secondary)] [&_a]:text-[var(--color-brand-gold)] [&_h3]:mt-3 [&_h3]:text-[var(--color-text-primary)] [&_li]:my-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_strong]:text-[var(--color-text-primary)] [&_ul]:list-disc [&_ul]:pl-5${strengths ? ' markdown-report--strengths' : ''}`}
+                >
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{sec.body || '（本节暂无内容）'}</ReactMarkdown>
                 </div>
               </div>

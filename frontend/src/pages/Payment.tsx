@@ -11,7 +11,7 @@ import { chineseZodiacFromYear } from '../utils/zodiacCalc'
 const PRODUCTS: Record<string, { amount: number; label: string; sub: string }> = {
   personality: { amount: 0.1, label: '个人性格报告', sub: '7 章深度结构 · 流式生成 · 可回看' },
   compatibility: { amount: 0.2, label: '配对分析', sub: '双人视角 · 相处与沟通建议' },
-  annual: { amount: 0.3, label: '年度运势', sub: '全年节奏 · 分季度提示' },
+  annual: { amount: 0.3, label: '年度运势', sub: '七章结构 · 全年节奏与月度提示' },
   chat: { amount: 0.1, label: 'AI 顾问对话', sub: '星座情绪陪伴' },
   personality_career: { amount: 0.07, label: '性格报告 · 职场深潜包', sub: '职业适配 · 协作与领导力' },
   personality_love: { amount: 0.07, label: '性格报告 · 恋爱深潜包', sub: '亲密关系模式与沟通建议' },
@@ -34,8 +34,8 @@ const PRODUCT_HERO: Partial<Record<string, string>> = {
 
 const PREVIEW_CHAPTERS: Record<string, string[]> = {
   personality: ['核心性格与优势', '情感与亲密关系', '事业财富节奏', '… 共 7 章'],
-  compatibility: ['双人能量互动', '沟通雷区与修复', '长期相处建议', '… 完整合盘解读'],
-  annual: ['年度主题与机遇窗口', '分季度重点', '风险规避提示', '… 全年参考'],
+  compatibility: ['缘分指数', '你们的化学反应', '双人能量与节奏', '… 共 6 章'],
+  annual: ['整体基调', '事业与学业', '感情与人际', '… 共 7 章'],
   chat: ['多轮对话', '即时回应', '情绪与星座视角陪伴'],
   personality_career: ['职场定位与优势', '团队协作与同事关系', '领导力与向上沟通'],
   personality_love: ['恋爱模式与需求', '理想伴侣画像', '感情雷区与修复'],
@@ -165,6 +165,14 @@ export default function Payment() {
   const onPay = () => {
     mutation.mutate(undefined, {
       onSuccess: (data) => {
+        if (data.order_id) {
+          try {
+            sessionStorage.setItem('starloom_pay_order_id', data.order_id)
+            localStorage.setItem('starloom_pay_order_id', data.order_id)
+          } catch {
+            /* ignore */
+          }
+        }
         const jump = data.url
         const qr = data.url_qrcode
         const mobile = typeof navigator !== 'undefined' && /Mobile|Android|iPhone/i.test(navigator.userAgent)
@@ -279,6 +287,9 @@ export default function Payment() {
         {mutation.data?.url_qrcode && (
           <div className="mt-2 space-y-2">
             <p className="text-center text-[10px] text-[var(--color-text-muted)]">电脑端可扫码支付</p>
+            <p className="text-center text-[10px] leading-snug text-[var(--color-text-tertiary)]">
+              手机微信扫码完成付款后，本页会定时检测支付状态并跳转结果；也可点下方手动进入。
+            </p>
             <img
               src={mutation.data.url_qrcode}
               alt="支付二维码"
@@ -286,7 +297,7 @@ export default function Payment() {
             />
             {mutation.data.order_id ? (
               <Link
-                to={`/payment/result?order_id=${encodeURIComponent(mutation.data.order_id)}`}
+                to={`/payment/result?order_id=${encodeURIComponent(mutation.data.order_id)}&auto=1`}
                 className="block text-center text-xs text-[var(--color-brand-gold)] underline"
               >
                 我已在手机完成支付，进入结果页

@@ -1,17 +1,85 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Link, useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { getPaymentStatus } from '../api/payment'
 import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
 import { useStarloomHydrated } from '../hooks/useStarloomHydrated'
 import { useUserStore } from '../stores/userStore'
 
+const PAY_ORDER_KEY = 'starloom_pay_order_id'
+
+function readStoredOrderId(): string {
+  try {
+    return sessionStorage.getItem(PAY_ORDER_KEY) || localStorage.getItem(PAY_ORDER_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+
+function clearStoredOrderId() {
+  try {
+    sessionStorage.removeItem(PAY_ORDER_KEY)
+    localStorage.removeItem(PAY_ORDER_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
+/** 支付成功后的目标页（与下方 Link 列表一致） */
+function pathAfterPaid(productType: string, orderId: string): string | null {
+  const enc = encodeURIComponent(orderId)
+  const withAuto = (path: string) => `${path}?order_id=${enc}&auto=1`
+  const dlcPack: Record<string, string> = {
+    personality_career: 'career',
+    personality_love: 'love',
+    personality_growth: 'growth',
+  }
+  if (productType in dlcPack) {
+    return `/report/personality?order_id=${enc}&auto=1&pack=${encodeURIComponent(dlcPack[productType])}`
+  }
+  switch (productType) {
+    case 'personality':
+      return withAuto('/report/personality')
+    case 'compatibility':
+      return withAuto('/report/compatibility')
+    case 'annual':
+      return withAuto('/report/annual')
+    case 'chat':
+      return `/chat?order_id=${enc}`
+    case 'astro_event':
+      return withAuto('/report/astro-event')
+    case 'season_pass':
+      return '/season/today'
+    default:
+      return null
+  }
+}
+
 export default function PaymentResult() {
-  const [search] = useSearchParams()
-  const orderId = search.get('order_id') ?? ''
+  const [search, setSearch] = useSearchParams()
+  const navigate = useNavigate()
+  const orderIdFromUrl = search.get('order_id') ?? ''
+  const storedId = useMemo(() => (orderIdFromUrl ? '' : readStoredOrderId()), [orderIdFromUrl])
+  const orderId = orderIdFromUrl || storedId
   const hydrated = useStarloomHydrated()
   const token = useUserStore((s) => s.token)
+
+  /** 微信回跳常丢 query：用下单时写入的 order_id 补全地址栏 */
+  useEffect(() => {
+    if (!orderIdFromUrl && storedId) {
+      setSearch(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.set('order_id', storedId)
+          if (!next.get('auto')) next.set('auto', '1')
+          return next
+        },
+        { replace: true },
+      )
+    }
+  }, [orderIdFromUrl, storedId, setSearch])
 
   const { data, isError, error } = useQuery({
     queryKey: ['payStatus', orderId],
@@ -35,6 +103,18 @@ export default function PaymentResult() {
   }
   const pack =
     data?.product_type && data.product_type in dlcPack ? dlcPack[data.product_type] : undefined
+
+  const autoRedirect = search.get('auto') !== '0'
+
+  /** 已支付则自动进入报告/对话页，避免用户付完停在结果页找不到入口 */
+  useEffect(() => {
+    if (!autoRedirect || status !== 'paid' || !data?.product_type || !orderId) return
+    const path = pathAfterPaid(data.product_type, orderId)
+    if (!path) return
+    clearStoredOrderId()
+    const t = window.setTimeout(() => navigate(path, { replace: true }), 700)
+    return () => window.clearTimeout(t)
+  }, [autoRedirect, status, data?.product_type, orderId, navigate])
 
   return (
     <>

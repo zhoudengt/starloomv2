@@ -612,6 +612,16 @@ def compute_annual_summary(
     return AnnualTransitSummary(year=year, highlights=highlights[:16], natal_chart=natal)
 
 
+def _user_column_loaded(user: Any, name: str) -> Any:
+    """Read ORM column value if already in instance dict — avoids sync lazy-load on expired users (async MissingGreenlet)."""
+    if user is None:
+        return None
+    d = getattr(user, "__dict__", None)
+    if isinstance(d, dict) and name in d:
+        return d.get(name)
+    return None
+
+
 def merge_chart_location(
     user: Any,
     place_name: Optional[str],
@@ -620,10 +630,10 @@ def merge_chart_location(
     tz: Optional[str],
 ) -> tuple[Optional[str], Optional[float], Optional[float], Optional[str]]:
     """Fill missing location from User profile when available."""
-    pn = place_name or (getattr(user, "birth_place_name", None) if user else None)
-    la = lat if lat is not None else (getattr(user, "birth_place_lat", None) if user else None)
-    lo = lon if lon is not None else (getattr(user, "birth_place_lon", None) if user else None)
-    tz_s = tz or (getattr(user, "birth_tz", None) if user else None)
+    pn = place_name or (_user_column_loaded(user, "birth_place_name") if user else None)
+    la = lat if lat is not None else (_user_column_loaded(user, "birth_place_lat") if user else None)
+    lo = lon if lon is not None else (_user_column_loaded(user, "birth_place_lon") if user else None)
+    tz_s = tz or (_user_column_loaded(user, "birth_tz") if user else None)
     return pn, la, lo, tz_s
 
 
@@ -633,8 +643,9 @@ def merge_birth_time(
 ) -> Optional[str]:
     if body_time and str(body_time).strip():
         return str(body_time).strip()
-    if user and getattr(user, "birth_time", None):
-        return user.birth_time.strftime("%H:%M")
+    bt = _user_column_loaded(user, "birth_time") if user else None
+    if bt:
+        return bt.strftime("%H:%M")
     return None
 
 

@@ -4,7 +4,6 @@ import logging
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +20,7 @@ from app.services.payment_service import (
     create_xunhupay_payment,
     default_order_expiry,
     generate_order_id,
+    query_xunhupay_order,
     verify_notify,
 )
 
@@ -118,40 +118,6 @@ async def payment_create(
     settings = get_settings()
     order_id = generate_order_id()
     product = ProductType(body.product_type)
-    # Demo：不调虎皮椒，订单直接已支付，用于审核期跑通全链路（生产务必 DEMO_MODE=false）
-    if settings.demo_mode:
-        now = datetime.utcnow()
-        order = Order(
-            order_id=order_id,
-            user_id=user.id,
-            product_type=product,
-            amount=expected,
-            status=OrderStatus.paid,
-            pay_method="demo",
-            paid_at=now,
-            expired_at=default_order_expiry(),
-            extra_data={**extra, "demo_payment": True},
-        )
-        db.add(order)
-        try:
-            await db.flush()
-            await apply_paid_order_rewards(db, order, user)
-        except Exception as e:
-            logger.exception("demo payment: order/rewards failed: %s", e)
-            raise HTTPException(
-                status_code=503,
-                detail=(
-                    "订单写入失败，请检查数据库表是否与当前代码一致 "
-                    "（users / orders / user_growth_profiles 等；见 scripts/migrate_starloom_optional.sql）"
-                ),
-            ) from e
-        result_url = f"{settings.frontend_url.rstrip('/')}/payment/result?order_id={order_id}"
-        return {
-            "order_id": order_id,
-            "url": result_url,
-            "url_qrcode": "",
-            "expire_at": order.expired_at.isoformat() if order.expired_at else None,
-        }
 
     if not settings.xunhupay_notify_url.strip():
         raise HTTPException(status_code=503, detail="Payment not configured: XUNHUPAY_NOTIFY_URL")
@@ -185,7 +151,7 @@ async def payment_create(
         "astro_event": "天象事件参考分析",
         "season_pass": "星运月卡",
     }
-    return_url = f"{settings.frontend_url.rstrip('/')}/payment/result?order_id={order_id}"
+    return_url = f"{settings.frontend_url.rstrip('/')}/payment/result?order_id={order_id}&auto=1"
     try:
         xh = await create_xunhupay_payment(
             settings,
@@ -256,6 +222,94 @@ async def payment_notify(request: Request, db: AsyncSession = Depends(get_db)) -
     return Response(content="success", media_type="text/plain")
 
 
+def _order_status_payload(order: Order) -> dict[str, Any]:
+    return {
+        "order_id": order.order_id,
+        "status": order.status.value,
+        "product_type": order.product_type.value,
+        "amount": str(order.amount),
+        "extra_data": order.extra_data or {},
+    }
+
+
+@router.post("/sync/{order_id}")
+async def payment_sync(
+    order_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """
+    主动向虎皮椒查询订单是否已支付并回写本地库。
+    解决：本地开发时 XUNHUPAY_NOTIFY_URL 指向公网，异步通知打不到本机，轮询永远 pending 的问题。
+    """
+    settings = get_settings()
+    result = await db.execute(
+        select(Order).where(Order.order_id == order_id, Order.user_id == user.id)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    if order.status == OrderStatus.paid:
+        return _order_status_payload(order)
+
+    pm = (order.pay_method or "").strip()
+    # Legacy: old demo orders in DB
+    if pm == "demo":
+        return _order_status_payload(order)
+
+    if pm not in ("wechat", "alipay"):
+        return _order_status_payload(order)
+
+    if not _xunhupay_channel_configured(settings, pm):
+        raise HTTPException(status_code=503, detail="Payment channel not configured")
+
+    try:
+        qh = await query_xunhupay_order(
+            settings,
+            pay_method=pm,
+            out_trade_order=order.order_id,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=502, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("payment sync: query failed")
+        raise HTTPException(status_code=502, detail=f"Payment query failed: {e!s}") from e
+
+    if qh.get("errcode") != 0:
+        return _order_status_payload(order)
+
+    inner = qh.get("data")
+    if not isinstance(inner, dict):
+        return _order_status_payload(order)
+
+    status_raw = str(inner.get("status") or "").upper()
+    if status_raw != "OD":
+        return _order_status_payload(order)
+
+    fee_raw = inner.get("total_amount") or inner.get("total_fee") or "0"
+    pay_amount = Decimal(str(fee_raw))
+    if pay_amount.quantize(Decimal("0.01")) != order.amount.quantize(Decimal("0.01")):
+        logger.error(
+            "payment sync: amount mismatch order=%s local=%s remote=%s",
+            order.order_id,
+            order.amount,
+            pay_amount,
+        )
+        raise HTTPException(status_code=400, detail="Amount mismatch")
+
+    order.status = OrderStatus.paid
+    order.paid_at = datetime.utcnow()
+    order.provider_order_id = str(inner.get("open_order_id") or inner.get("transaction_id") or "")
+    await db.flush()
+    ures = await db.execute(select(User).where(User.id == order.user_id))
+    payer = ures.scalar_one_or_none()
+    if payer:
+        await apply_paid_order_rewards(db, order, payer)
+
+    return _order_status_payload(order)
+
+
 @router.get("/status/{order_id}")
 async def payment_status(
     order_id: str,
@@ -268,10 +322,4 @@ async def payment_status(
     order = result.scalar_one_or_none()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    return {
-        "order_id": order.order_id,
-        "status": order.status.value,
-        "product_type": order.product_type.value,
-        "amount": str(order.amount),
-        "extra_data": order.extra_data or {},
-    }
+    return _order_status_payload(order)
