@@ -1,7 +1,7 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { createPayment, getPaymentStatus } from '../api/payment'
+import { createPayment, getPaymentStatus, getPendingPayment } from '../api/payment'
 import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
 import { useStarloomHydrated } from '../hooks/useStarloomHydrated'
@@ -91,6 +91,16 @@ function buildExtraData(product: string, search: URLSearchParams): Record<string
 const PAY_POLL_MS = 2000
 const PAY_POLL_MAX = 150
 
+function isMobileUa(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /Mobile|Android|iPhone/i.test(navigator.userAgent)
+}
+
+function isWeChatUa(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /MicroMessenger/i.test(navigator.userAgent)
+}
+
 export default function Payment() {
   const hydrated = useStarloomHydrated()
   const token = useUserStore((s) => s.token)
@@ -126,6 +136,16 @@ export default function Payment() {
         pay_method: method,
         extra_data: extraData,
       }),
+  })
+
+  const mobile = useMemo(() => isMobileUa(), [])
+  const weChat = useMemo(() => isWeChatUa(), [])
+
+  const { data: pendingData } = useQuery({
+    queryKey: ['paymentPending', product, token],
+    queryFn: () => getPendingPayment(product in PRODUCTS ? product : 'personality'),
+    enabled: hydrated && !!token && !mutation.data,
+    staleTime: 20_000,
   })
 
   const hint = useMemo(() => mutation.error?.message, [mutation.error])
@@ -175,14 +195,11 @@ export default function Payment() {
         }
         const jump = data.url
         const qr = data.url_qrcode
-        const mobile = typeof navigator !== 'undefined' && /Mobile|Android|iPhone/i.test(navigator.userAgent)
-        // H5 主场景：手机直接跳支付页；PC 若有二维码则留在本页展示扫码图
-        if (mobile && jump) {
-          window.location.href = jump
-        } else if (!mobile && qr) {
-          /* 二维码在下方 mutation.data 区域展示 */
+        // PC 有扫码图时留在本页；其余场景用 replace 跳转收银台。微信内异步跳转易被拦截，下方保留 <a> 兜底。
+        if (!mobile && qr) {
+          /* 二维码在下方展示 */
         } else if (jump) {
-          window.location.href = jump
+          window.location.replace(jump)
         }
       },
     })
@@ -201,6 +218,20 @@ export default function Payment() {
         确认支付
       </h1>
       <p className="mt-1 text-xs text-[var(--color-text-muted)]">单次付费 · 无自动续费 · 支付成功后即时生成</p>
+
+      {pendingData?.order_id && !mutation.data && (
+        <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100/95">
+          <p className="leading-snug">
+            检测到本商品有一笔待支付订单。若已在微信付款，请直接查看支付状态，避免重复付款。
+          </p>
+          <Link
+            to={`/payment/result?order_id=${encodeURIComponent(pendingData.order_id)}&auto=1`}
+            className="mt-2 inline-block font-medium text-[var(--color-brand-gold)] underline underline-offset-2"
+          >
+            查看支付状态
+          </Link>
+        </div>
+      )}
 
       <div className="card-featured relative mt-6 overflow-hidden p-5">
         {productHeroSrc ? (
@@ -284,6 +315,15 @@ export default function Payment() {
           </span>
         </button>
         {hint && <p className="text-sm text-red-300">{hint}</p>}
+        {mutation.data?.url && (mobile || weChat || !mutation.data.url_qrcode) && (
+          <a
+            href={mutation.data.url}
+            rel="noopener noreferrer"
+            className="block rounded-xl border border-[var(--color-brand-gold)]/40 bg-[var(--color-brand-gold)]/10 py-3 text-center text-sm font-medium text-[var(--color-brand-gold)]"
+          >
+            若未自动跳转，点此前往微信支付
+          </a>
+        )}
         {mutation.data?.url_qrcode && (
           <div className="mt-2 space-y-2">
             <p className="text-center text-[10px] text-[var(--color-text-muted)]">电脑端可扫码支付</p>

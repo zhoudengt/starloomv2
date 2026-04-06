@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ default
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt gunicorn
+RUN pip install --timeout=300 --no-cache-dir -r requirements.txt gunicorn
 
 COPY app ./app
 

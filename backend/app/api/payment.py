@@ -232,6 +232,40 @@ def _order_status_payload(order: Order) -> dict[str, Any]:
     }
 
 
+@router.get("/pending")
+async def payment_pending(
+    product_type: str,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict[str, Any]:
+    """当前用户该商品下最近一笔未过期且待支付的订单（用于避免重复下单、引导去结果页同步）。"""
+    if product_type not in PRODUCT_PRICES:
+        raise HTTPException(status_code=400, detail="Invalid product_type")
+    now = datetime.utcnow()
+    try:
+        pt = ProductType(product_type)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid product_type") from e
+    result = await db.execute(
+        select(Order)
+        .where(
+            Order.user_id == user.id,
+            Order.product_type == pt,
+            Order.status == OrderStatus.pending,
+            Order.expired_at > now,
+        )
+        .order_by(Order.created_at.desc())
+        .limit(1)
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        return {"order_id": None}
+    return {
+        "order_id": order.order_id,
+        "expired_at": order.expired_at.isoformat() if order.expired_at else None,
+    }
+
+
 @router.post("/sync/{order_id}")
 async def payment_sync(
     order_id: str,
