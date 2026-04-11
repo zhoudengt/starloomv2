@@ -1,6 +1,8 @@
 export type SseHandlers = {
   onContent?: (text: string) => void
   onDone?: (reportId: string) => void
+  onStage?: (stage: string, message: string) => void
+  onProgress?: (progress: number, message: string) => void
   onRaw?: (obj: Record<string, unknown>) => void
 }
 
@@ -58,6 +60,12 @@ export async function postSseStream(
           handlers.onRaw?.(obj)
           if (obj.type === 'content' && typeof obj.text === 'string') {
             handlers.onContent?.(obj.text)
+          }
+          if (obj.type === 'stage' && typeof obj.stage === 'string') {
+            handlers.onStage?.(obj.stage as string, (obj.message as string) ?? '')
+          }
+          if (obj.type === 'progress' && typeof obj.progress === 'number') {
+            handlers.onProgress?.(obj.progress as number, (obj.message as string) ?? '')
           }
           if (obj.type === 'done' && typeof obj.report_id === 'string') {
             handlers.onDone?.(obj.report_id)

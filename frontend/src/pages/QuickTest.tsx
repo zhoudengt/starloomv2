@@ -13,13 +13,15 @@ import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
 import { CN_CITY_NAMES } from '../utils/cnCities'
 import { placementsFromBirth, sunSignFromDate, triadInsightBlurb, ZODIAC_CN } from '../utils/zodiacCalc'
+import { usePrice } from '../hooks/usePrices'
 import { useBirthProfileStore } from '../stores/birthProfileStore'
 import { useUserStore } from '../stores/userStore'
+import { appendUtm } from '../utils/utm'
 
 const SUMMARY_DOTS = ['#ff6b4a', '#00e5ff', '#a78bfa', '#ffd700', '#f472b6']
 
 const QUICKTEST_SHARE_URL = () =>
-  typeof window === 'undefined' ? 'https://starloom.app/quicktest' : `${window.location.origin}/quicktest`
+  typeof window === 'undefined' ? 'https://starloom.app/quicktest' : appendUtm(`${window.location.origin}/quicktest`, 'quicktest_share')
 
 /** 28 particles: some dots, some short streaks for stronger motion */
 const PARTICLE_SEED = Array.from({ length: 28 }, (_, i) => ({
@@ -132,6 +134,7 @@ function RadarCardAnimatedBg() {
 }
 
 export default function QuickTest() {
+  const pricePersonality = usePrice('personality')
   const token = useUserStore((s) => s.token)
   const birthDate = useBirthProfileStore((s) => s.birthDate)
   const birthTime = useBirthProfileStore((s) => s.birthTime)
@@ -537,7 +540,7 @@ export default function QuickTest() {
           </div>
         </motion.div>
 
-        <BlurLock ctaTo={payHref} price="0.10" gender={gender} />
+        <BlurLock ctaTo={payHref} price={pricePersonality} gender={gender} />
 
         <p className="mt-4 text-center text-[10px] text-[var(--color-text-muted)]">
           邀请好友通过扫码进入，一起探索星座密码

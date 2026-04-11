@@ -1,7 +1,9 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { prefetchDailyFortune } from '../api/constellation'
+import { ZODIAC_CARD_IMG, zodiacPictureSources } from '../utils/zodiacAssets'
 import { elementFromSign, type ZodiacElement } from '../utils/zodiacCalc'
 
 type Props = {
@@ -38,17 +40,16 @@ const ELEMENT_BAR: Record<
   },
 }
 
-function zodiacImageSrc(sign: string) {
-  return `/zodiac/${sign.toLowerCase()}.png`
-}
-
 export function ZodiacCard({ sign, signCn, symbol: _symbol, score, index = 0 }: Props) {
   const queryClient = useQueryClient()
+  const [imgLoaded, setImgLoaded] = useState(false)
   const warmDailyDetail = () => {
     void prefetchDailyFortune(queryClient, sign)
   }
   const el = elementFromSign(sign)
   const e = ELEMENT_BAR[el]
+  const priority = index < 4
+  const { webp, png } = zodiacPictureSources(sign)
   const pct = score != null ? Math.min(100, Math.max(0, score)) : null
   const r = 16
   const c = 2 * Math.PI * r
@@ -71,13 +72,29 @@ export function ZodiacCard({ sign, signCn, symbol: _symbol, score, index = 0 }: 
       >
         {/* Character art — edge-to-edge, no dead space */}
         <div className="relative h-[104px] w-full shrink-0 overflow-hidden rounded-t-2xl">
-          <img
-            src={zodiacImageSrc(sign)}
-            alt={`${signCn}角色`}
-            className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-[1.03]"
-            loading="lazy"
-            decoding="async"
-          />
+          {!imgLoaded && (
+            <div
+              className="absolute inset-0 animate-pulse bg-gradient-to-b from-white/35 to-white/5"
+              aria-hidden
+            />
+          )}
+          <picture className="block h-full w-full">
+            <source srcSet={webp} type="image/webp" />
+            <img
+              src={png}
+              alt={`${signCn}角色`}
+              width={ZODIAC_CARD_IMG.width}
+              height={ZODIAC_CARD_IMG.height}
+              sizes="105px"
+              loading={priority ? 'eager' : 'lazy'}
+              {...(priority ? { fetchPriority: 'high' as const } : {})}
+              decoding="async"
+              onLoad={() => setImgLoaded(true)}
+              className={`h-full w-full object-cover object-center transition-[opacity,transform] duration-300 group-hover:scale-[1.03] ${
+                imgLoaded ? 'opacity-100' : 'opacity-0'
+              }`}
+            />
+          </picture>
         </div>
 
         <div className="relative z-[2] flex min-h-0 flex-1 flex-col justify-center px-1.5 pb-1.5 pt-1">

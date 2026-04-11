@@ -280,6 +280,19 @@ body::before {
   background: rgba(139, 92, 246, 0.12);
 }
 
+.btn-secondary {
+  position: relative;
+  border-radius: 0.875rem;
+  border: 1.5px solid rgba(240, 199, 94, 0.35);
+  background: rgba(240, 199, 94, 0.08);
+  color: var(--color-brand-gold);
+  font-weight: 600;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-secondary:active {
+  background: rgba(240, 199, 94, 0.15);
+}
+
 @keyframes starloom-fade-up {
   from {
     opacity: 0;

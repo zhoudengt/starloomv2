@@ -3,7 +3,6 @@ import { motion } from 'framer-motion'
 import { useEffect, useMemo } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { getPaymentStatus } from '../api/payment'
-import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
 import { useStarloomHydrated } from '../hooks/useStarloomHydrated'
 import { useUserStore } from '../stores/userStore'
@@ -52,6 +51,8 @@ function pathAfterPaid(productType: string, orderId: string): string | null {
       return withAuto('/report/astro-event')
     case 'season_pass':
       return '/season/today'
+    case 'daily_guide':
+      return '/guide/career'
     default:
       return null
   }
@@ -118,7 +119,6 @@ export default function PaymentResult() {
 
   return (
     <>
-      <StarryBackground />
       <h1 className="font-serif text-2xl text-[var(--color-brand-gold)]">支付结果</h1>
       {!orderId && <p className="mt-4 text-[var(--color-text-secondary)]">缺少订单号</p>}
       {orderId && !hydrated && (

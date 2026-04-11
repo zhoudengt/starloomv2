@@ -11,6 +11,7 @@ import ReportStreamingLoader from '../components/ReportStreamingLoader'
 import { StarryBackground } from '../components/StarryBackground'
 import { useBirthProfileStore } from '../stores/birthProfileStore'
 import { useUserStore } from '../stores/userStore'
+import { usePrice } from '../hooks/usePrices'
 import { CN_CITY_NAMES } from '../utils/cnCities'
 import { SECTION_IMAGES_ANNUAL, type ReportGender } from '../utils/reportSectionImages'
 import {
@@ -23,6 +24,7 @@ import {
 } from '../utils/zodiacCalc'
 
 export default function AnnualReport() {
+  const priceAnnual = usePrice('annual')
   const navigate = useNavigate()
   const [search] = useSearchParams()
   const token = useUserStore((s) => s.token)
@@ -42,6 +44,8 @@ export default function AnnualReport() {
   const [year, setYear] = useState(() => clampAnnualYear(new Date().getFullYear()))
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
+  const [streamStage, setStreamStage] = useState('')
+  const [streamProgress, setStreamProgress] = useState(0)
   const [doneId, setDoneId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const autoKickoff = useRef(false)
@@ -61,6 +65,8 @@ export default function AnnualReport() {
       setErr(null)
       setLoading(true)
       setText('')
+      setStreamStage('')
+      setStreamProgress(0)
       setDoneId(null)
       try {
         const st = useBirthProfileStore.getState()
@@ -80,6 +86,8 @@ export default function AnnualReport() {
           {
             onContent: (t) => setText((prev) => prev + t),
             onDone: (id) => setDoneId(id),
+            onStage: (s) => setStreamStage(s),
+            onProgress: (p) => setStreamProgress(p),
           },
         )
       } catch (e: unknown) {
@@ -253,12 +261,25 @@ export default function AnnualReport() {
         <button
           type="button"
           onClick={onPay}
-          className="w-full rounded-xl border border-white/20 py-2.5 text-sm text-[var(--color-text-secondary)]"
+          className="btn-secondary w-full rounded-xl py-2.5 text-sm"
         >
-          先支付 ¥0.30（保存出生日期与年份）
+          先支付 ¥{priceAnnual}（保存出生日期与年份）
         </button>
       </div>
-      {err && <p className="mt-4 text-sm text-red-300">{err}</p>}
+      {err && (
+        <div className="mt-4 space-y-2">
+          <p className="text-sm text-red-300">{err}</p>
+          {text && !doneId && (
+            <button
+              type="button"
+              onClick={() => void runStream(year)}
+              className="text-xs text-[var(--color-brand-gold)] underline"
+            >
+              重试生成
+            </button>
+          )}
+        </div>
+      )}
       {loading && (
         <ReportStreamingLoader
           loading={loading}
@@ -267,6 +288,8 @@ export default function AnnualReport() {
           birthDate={birthDate}
           signCn={signCn}
           heroSrc={heroZodiacSrc}
+          stage={streamStage}
+          progress={streamProgress}
         />
       )}
       {doneId && (
@@ -276,6 +299,14 @@ export default function AnnualReport() {
             我的报告
           </Link>
         </p>
+      )}
+      {!loading && text && !doneId && err && (
+        <div className="mt-4">
+          <p className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+            以下为中断前已接收的部分内容，完整报告需重新生成。
+          </p>
+          <MarkdownReport content={text} sectionImages={SECTION_IMAGES_ANNUAL} useAnnualCanonicalImages gender={gender as ReportGender} />
+        </div>
       )}
       <div className="mt-8">
         {doneId && text && !loading ? (

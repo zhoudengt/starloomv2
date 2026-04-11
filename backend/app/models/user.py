@@ -2,7 +2,7 @@ import enum
 from datetime import date, datetime, time
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import BigInteger, Date, DateTime, Enum, Float, String, Time
+from sqlalchemy import BigInteger, Date, DateTime, Enum, Float, JSON, String, Time
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base
@@ -36,6 +36,7 @@ class User(Base):
         Enum(Gender, values_callable=lambda x: [e.value for e in x]),
         default=Gender.unknown,
     )
+    ai_profile: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, onupdate=datetime.utcnow

@@ -31,6 +31,10 @@ type Props = {
   signCn?: string
   /** Override top hero image (e.g. annual 生肖图) */
   heroSrc?: string
+  /** 后端 SSE stage（planning / generating / composing） */
+  stage?: string
+  /** 后端 progress 0–100 */
+  progress?: number
 }
 
 export default function ReportStreamingLoader({
@@ -41,6 +45,8 @@ export default function ReportStreamingLoader({
   birthTime,
   signCn,
   heroSrc,
+  stage,
+  progress,
 }: Props) {
   const [elapsed, setElapsed] = useState(0)
 
@@ -125,10 +131,16 @@ export default function ReportStreamingLoader({
               >
                 <Icon name="sparkle" size={18} />
               </motion.span>
-              正在准备你的专属报告…
+              {stage === 'planning'
+                ? '正在分析你的星盘…'
+                : stage === 'composing'
+                  ? '正在整理排版…'
+                  : '正在准备你的专属报告…'}
             </div>
             <p className="mt-2 text-center text-[10px] text-[var(--color-text-muted)]">
-              约 1–3 分钟 · 已等待 {elapsed} 秒（首段文字出现即进入流式输出）
+              {progress != null && progress > 0
+                ? `已完成 ${progress}% · 已等待 ${elapsed} 秒`
+                : `约 1–3 分钟 · 已等待 ${elapsed} 秒（首段文字出现即进入流式输出）`}
             </p>
 
             <div className="mt-6 w-full max-w-xs space-y-2">
@@ -171,6 +183,8 @@ export default function ReportStreamingLoader({
         birthDate={birthDate}
         birthTime={birthTime}
         signCn={signCn}
+        stage={stage}
+        progress={progress}
       />
     </div>
   )

@@ -56,6 +56,8 @@ def get_bailian_app_id(settings: Settings, scene: str) -> str:
         "compatibility": settings.bailian_app_id_compatibility,
         "annual": settings.bailian_app_id_annual,
         "chat": settings.bailian_app_id_chat,
+        "planner": settings.bailian_app_id_planner,
+        "profile_extractor": settings.bailian_app_id_profile_extractor,
     }.get(scene, "")
     return (key or "").strip() or (settings.bailian_app_id or "").strip()
 
@@ -283,6 +285,20 @@ class LLMServiceFactory:
     def bailian_for_scene(settings: Settings, scene: str) -> BaseLLMService:
         app_id = get_bailian_app_id(settings, scene)
         return BailianApplicationService(settings, app_id)
+
+    @staticmethod
+    def for_planner(settings: Settings) -> BaseLLMService:
+        if settings.llm_platform.lower() == "bailian":
+            app_id = get_bailian_app_id(settings, "planner")
+            return BailianApplicationService(settings, app_id)
+        return CozeService(settings, settings.coze_bot_id_report)
+
+    @staticmethod
+    def for_profile_extractor(settings: Settings) -> BaseLLMService:
+        if settings.llm_platform.lower() == "bailian":
+            app_id = get_bailian_app_id(settings, "profile_extractor")
+            return BailianApplicationService(settings, app_id)
+        return CozeService(settings, settings.coze_bot_id_report)
 
 
 async def generate_with_fallback(

@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom'
 import { fetchSeasonToday } from '../api/season'
 import MarkdownReport from '../components/MarkdownReport'
 import { StarryBackground } from '../components/StarryBackground'
+import { usePrice } from '../hooks/usePrices'
 
 export default function SeasonToday() {
+  const priceSeasonPass = usePrice('season_pass')
   const q = useQuery({
     queryKey: ['seasonToday'],
     queryFn: fetchSeasonToday,
@@ -42,7 +44,7 @@ export default function SeasonToday() {
                 to="/payment?product=season_pass"
                 className="mt-3 inline-block rounded-xl bg-[var(--color-brand-gold)]/20 px-4 py-2 text-[var(--color-brand-gold)]"
               >
-                去开通 ¥0.13/30天
+                去开通 ¥{priceSeasonPass}/30天
               </Link>
             </>
           ) : (

@@ -49,7 +49,7 @@ class AnnualReportBody(BaseModel):
 class PaymentCreateBody(BaseModel):
     product_type: str = Field(
         ...,
-        description="personality|compatibility|annual|chat|personality_career|personality_love|personality_growth|astro_event|season_pass",
+        description="personality|compatibility|annual|chat|personality_career|personality_love|personality_growth|astro_event|season_pass|daily_guide",
     )
     amount: Decimal
     pay_method: str = Field(default="wechat", description="wechat|alipay")

@@ -12,5 +12,7 @@
 | [quicktest.md](quicktest.md) | （已废弃） | 免费速测已改为 `astro_service.compute_quicktest_*` 纯规则，不再调百炼 |
 | [personality_dlc.md](personality_dlc.md) | `BAILIAN_APP_ID_PERSONALITY` | 扩展包（职场/恋爱/成长） |
 | [astro_event.md](astro_event.md) | `BAILIAN_APP_ID_PERSONALITY` | 天文事件主题报告 |
+| [report_planner.md](report_planner.md) | `BAILIAN_APP_ID_PLANNER` | 报告规划师（两阶段报告的第一阶段，输出 JSON 大纲） |
+| [profile_extractor.md](profile_extractor.md) | `BAILIAN_APP_ID_PROFILE_EXTRACTOR` | 用户画像提取器（从报告中提取标签，后台异步调用） |
 
 后端 user input 由 `backend/app/prompts/*.py` 与 `chart_formatter.py` 组装；系统提示词应包含语气、免责与输出格式，**不要**在代码里重复指令性长文案。

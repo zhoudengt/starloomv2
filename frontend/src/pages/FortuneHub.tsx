@@ -4,8 +4,11 @@ import { Link } from 'react-router-dom'
 import { fetchDailyAll, fetchSigns, prefetchDailyFortune } from '../api/constellation'
 import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
+import { usePrice } from '../hooks/usePrices'
+import { ZODIAC_CARD_IMG, zodiacPictureSources } from '../utils/zodiacAssets'
 
 export default function FortuneHub() {
+  const pricePersonality = usePrice('personality')
   const queryClient = useQueryClient()
   const { data: signsData } = useQuery({ queryKey: ['signs'], queryFn: fetchSigns })
   const { data: dailyAll } = useQuery({ queryKey: ['dailyAll'], queryFn: fetchDailyAll })
@@ -28,7 +31,9 @@ export default function FortuneHub() {
         </div>
       </div>
       <div className="mt-6 flex gap-3 overflow-x-auto pb-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        {(signsData?.signs ?? []).map((s, i) => (
+        {(signsData?.signs ?? []).map((s, i) => {
+          const { webp, png } = zodiacPictureSources(s.sign)
+          return (
           <motion.div
             key={s.sign}
             initial={{ opacity: 0, y: 12 }}
@@ -44,12 +49,20 @@ export default function FortuneHub() {
               className="card-elevated flex flex-col items-center rounded-2xl px-3 py-4 text-center transition-transform active:scale-95"
             >
               <div className="relative flex flex-col items-center">
-                <img
-                  src={`/zodiac/${s.sign.toLowerCase()}.png`}
-                  alt=""
-                  className="h-14 w-14 rounded-2xl object-cover shadow-[0_8px_24px_rgba(0,0,0,0.35)]"
-                  loading="lazy"
-                />
+                <picture className="block h-14 w-14 shrink-0 overflow-hidden rounded-2xl shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+                  <source srcSet={webp} type="image/webp" />
+                  <img
+                    src={png}
+                    alt=""
+                    width={ZODIAC_CARD_IMG.width}
+                    height={ZODIAC_CARD_IMG.height}
+                    sizes="56px"
+                    loading={i < 4 ? 'eager' : 'lazy'}
+                    {...(i < 4 ? { fetchPriority: 'high' as const } : {})}
+                    decoding="async"
+                    className="h-full w-full object-cover"
+                  />
+                </picture>
                 <span className="mt-1 block font-serif text-sm text-[var(--color-brand-gold)]">{s.symbol}</span>
               </div>
               <span className="mt-1 text-sm text-[var(--color-text-primary)]">{s.sign_cn}</span>
@@ -60,7 +73,8 @@ export default function FortuneHub() {
               )}
             </Link>
           </motion.div>
-        ))}
+          )
+        })}
       </div>
       <div className="mt-10 space-y-3">
         <Link
@@ -74,7 +88,7 @@ export default function FortuneHub() {
           to="/payment?product=personality"
           className="flex w-full items-center justify-center gap-1 rounded-2xl border border-white/[0.1] py-3 text-xs text-[var(--color-text-secondary)] transition-colors active:bg-white/[0.04]"
         >
-          直接解锁完整性格报告 ¥0.10
+          直接解锁完整性格报告 ¥{pricePersonality}
           <Icon name="chevronRight" size={14} />
         </Link>
       </div>

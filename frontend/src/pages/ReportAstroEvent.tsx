@@ -9,11 +9,13 @@ import ReportExportActions from '../components/ReportExportActions'
 import ReportStreamingLoader from '../components/ReportStreamingLoader'
 import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
+import { usePrice } from '../hooks/usePrices'
 import { useUserStore } from '../stores/userStore'
 import { SECTION_IMAGES_ASTRO_EVENT, type ReportGender } from '../utils/reportSectionImages'
 import { ZODIAC_CN, sunSignFromDate } from '../utils/zodiacCalc'
 
 export default function ReportAstroEvent() {
+  const priceAstroEvent = usePrice('astro_event')
   const [search] = useSearchParams()
   const token = useUserStore((s) => s.token)
   const auto = search.get('auto') === '1'
@@ -143,7 +145,7 @@ export default function ReportAstroEvent() {
           className="flex justify-center gap-1 text-xs text-[var(--color-text-muted)] underline"
         >
           <Icon name="lock" size={12} />
-          未支付？¥0.10
+          未支付？¥{priceAstroEvent}
         </Link>
       </div>
 

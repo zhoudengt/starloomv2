@@ -13,7 +13,10 @@ import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
 import { useBirthProfileStore, type BirthProfileGender } from '../stores/birthProfileStore'
 import { useUserStore } from '../stores/userStore'
+import { toast } from '../components/Toast'
 import { SECTION_IMAGES_PERSONALITY, type ReportGender } from '../utils/reportSectionImages'
+import { usePrice } from '../hooks/usePrices'
+import { appendUtm } from '../utils/utm'
 import { ZODIAC_CN, sunSignFromDate } from '../utils/zodiacCalc'
 
 function formatReportStreamError(e: unknown): string {
@@ -35,6 +38,8 @@ function formatReportStreamError(e: unknown): string {
 }
 
 export default function ReportPersonality() {
+  const pricePersonality = usePrice('personality')
+  const priceDlc = usePrice('personality_career')
   const [search] = useSearchParams()
   const token = useUserStore((s) => s.token)
   const auto = search.get('auto') === '1'
@@ -54,6 +59,8 @@ export default function ReportPersonality() {
   const applyFromExtras = useBirthProfileStore((s) => s.applyFromExtras)
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
+  const [streamStage, setStreamStage] = useState('')
+  const [streamProgress, setStreamProgress] = useState(0)
   const [doneId, setDoneId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const autoKickoff = useRef(false)
@@ -73,6 +80,8 @@ export default function ReportPersonality() {
       setErr(null)
       setLoading(true)
       setText('')
+      setStreamStage('')
+      setStreamProgress(0)
       setDoneId(null)
       try {
         const bp = useBirthProfileStore.getState()
@@ -92,6 +101,8 @@ export default function ReportPersonality() {
           {
             onContent: (t) => setText((prev) => prev + t),
             onDone: (id) => setDoneId(id),
+            onStage: (s) => setStreamStage(s),
+            onProgress: (p) => setStreamProgress(p),
           },
         )
       } catch (e: unknown) {
@@ -112,6 +123,8 @@ export default function ReportPersonality() {
       setErr(null)
       setLoading(true)
       setText('')
+      setStreamStage('')
+      setStreamProgress(0)
       setDoneId(null)
       try {
         const bp = useBirthProfileStore.getState()
@@ -185,11 +198,13 @@ export default function ReportPersonality() {
   const shareSnippet = () => {
     if (!text.trim()) return
     const slice = text.slice(0, 280)
+    const shareUrl = appendUtm(`${window.location.origin}/payment?product=personality`, 'report_share')
+    const shareText = `${slice}\n\n${shareUrl}`
     if (navigator.share) {
-      void navigator.share({ title: 'StarLoom 性格报告', text: slice })
+      void navigator.share({ title: 'StarLoom 性格报告', text: shareText, url: shareUrl })
     } else {
-      void navigator.clipboard.writeText(slice)
-      alert('已复制摘要到剪贴板')
+      void navigator.clipboard.writeText(shareText)
+      toast('已复制摘要到剪贴板')
     }
   }
 
@@ -282,14 +297,27 @@ export default function ReportPersonality() {
         </button>
         <Link
           to={`/payment?product=personality&birth_date=${encodeURIComponent(birthDate)}${gender ? `&gender=${encodeURIComponent(gender)}` : ''}${birthTime ? `&birth_time=${encodeURIComponent(birthTime)}` : ''}`}
-          className="flex items-center justify-center gap-1 text-center text-xs text-[var(--color-text-muted)] underline"
+          className="btn-secondary flex items-center justify-center gap-1 rounded-xl py-2.5 text-center text-xs"
         >
           <Icon name="lock" size={12} />
-          未支付？去支付 ¥0.10
+          未支付？去支付 ¥{pricePersonality}
         </Link>
       </div>
 
-      {err && <p className="mt-4 text-sm text-red-300">{err}</p>}
+      {err && (
+        <div className="mt-4 space-y-2">
+          <p className="text-sm text-red-300">{err}</p>
+          {text && !doneId && (
+            <button
+              type="button"
+              onClick={onManualRun}
+              className="text-xs text-[var(--color-brand-gold)] underline"
+            >
+              重试生成
+            </button>
+          )}
+        </div>
+      )}
       {loading && (
         <ReportStreamingLoader
           loading={loading}
@@ -298,6 +326,8 @@ export default function ReportPersonality() {
           birthDate={birthDate}
           birthTime={birthTime}
           signCn={signCn}
+          stage={streamStage}
+          progress={streamProgress}
         />
       )}
       {doneId && (
@@ -307,6 +337,16 @@ export default function ReportPersonality() {
             我的报告
           </Link>
         </p>
+      )}
+
+      {/* Partial content on error: show what was received before disconnect */}
+      {!loading && text && !doneId && err && (
+        <div className="mt-4">
+          <p className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+            以下为中断前已接收的部分内容，完整报告需重新生成。
+          </p>
+          <MarkdownReport content={text} sectionImages={SECTION_IMAGES_PERSONALITY} gender={gender as ReportGender} />
+        </div>
       )}
 
       <div className="mt-8">
@@ -352,7 +392,7 @@ export default function ReportPersonality() {
               <div className="mt-6 rounded-2xl border border-[var(--color-brand-violet)]/30 bg-[var(--color-surface-3)]/40 p-4">
                 <p className="text-sm font-medium text-[var(--color-text-primary)]">深度拓展包 · 提升 LTV</p>
                 <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">
-                  已读完基础报告？可继续解锁职场 / 恋爱 / 成长专题（各 ¥0.07）
+                  已读完基础报告？可继续解锁职场 / 恋爱 / 成长专题（各 ¥{priceDlc}）
                 </p>
                 <div className="mt-3 flex flex-col gap-2">
                   {(

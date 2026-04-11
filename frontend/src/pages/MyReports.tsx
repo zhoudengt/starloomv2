@@ -2,8 +2,8 @@ import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { fetchUserReports } from '../api/reports'
-import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
+import { usePrice } from '../hooks/usePrices'
 
 const typeLabel: Record<string, string> = {
   personality: '性格报告',
@@ -45,6 +45,7 @@ function EmptyReportsIllustration() {
 }
 
 export default function MyReports() {
+  const pricePersonality = usePrice('personality')
   const { data, isLoading, error } = useQuery({
     queryKey: ['userReports'],
     queryFn: fetchUserReports,
@@ -52,7 +53,6 @@ export default function MyReports() {
 
   return (
     <>
-      <StarryBackground />
       <h1 className="font-serif text-2xl font-medium tracking-tight text-[var(--color-text-primary)]">我的报告</h1>
       <p className="mt-2 text-xs text-[var(--color-text-secondary)]">已生成的 AI 报告可随时回看</p>
       {isLoading && (
@@ -113,7 +113,7 @@ export default function MyReports() {
               to="/payment?product=personality"
               className="text-center text-xs text-[var(--color-brand-violet)] underline-offset-2 hover:underline"
             >
-              或直接购买性格报告 ¥0.10
+              或直接购买性格报告 ¥{pricePersonality}
             </Link>
           </div>
         </div>

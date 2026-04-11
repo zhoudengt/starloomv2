@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link, useParams } from 'react-router-dom'
 import { fetchReport } from '../api/reports'
 import MarkdownReport from '../components/MarkdownReport'
+import { isContentIr } from '../types/contentIr'
 import { resolveReportGenderFromInput, sectionImagesForReportType } from '../utils/reportSectionImages'
 import ReportCertificateHeader from '../components/ReportCertificateHeader'
 import { Skeleton } from '../components/Skeleton'
@@ -58,6 +59,7 @@ export default function ReportView() {
       </Link>
       <MarkdownReport
         content={data.content}
+        contentIr={data.content_ir && isContentIr(data.content_ir) ? data.content_ir : null}
         sectionImages={sectionImages}
         gender={reportGender}
         usePersonalityCanonicalImages={personalityFamily}

@@ -36,6 +36,7 @@ class Report(Base):
     sign: Mapped[str] = mapped_column(String(20), nullable=False)
     input_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    content_ir: Mapped[Optional[dict[str, Any]]] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     user: Mapped["User"] = relationship("User", back_populates="reports")

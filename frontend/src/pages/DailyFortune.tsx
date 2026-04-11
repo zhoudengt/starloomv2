@@ -8,7 +8,11 @@ import { PayButton } from '../components/PayButton'
 import { DailyFortuneSkeleton } from '../components/Skeleton'
 import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
+import { toast } from '../components/Toast'
+import { usePrice } from '../hooks/usePrices'
 import { resolveColor } from '../utils/colorMap'
+import { FunnelEvents, trackEvent } from '../utils/analytics'
+import { appendUtm } from '../utils/utm'
 import { elementFromSignSafe, type ZodiacElement } from '../utils/zodiacCalc'
 
 function actionTip(full: string, maxLen = 52): string {
@@ -157,19 +161,23 @@ function DetailCard({
         className={`pointer-events-none absolute -right-2 top-3 h-16 w-16 rounded-full opacity-40 blur-xl ${decoClass}`}
         aria-hidden
       />
-      <motion.img
-        src={sectionImage}
-        alt=""
-        className="pointer-events-none absolute -right-1 -top-1 h-24 w-24 object-contain opacity-[0.32] drop-shadow-[0_0_14px_rgba(240,199,94,0.45)]"
-        animate={{ y: [-4, 4] }}
-        transition={{ repeat: Infinity, repeatType: 'reverse', duration: 3, ease: 'easeInOut' }}
+      <div
+        className="pointer-events-none absolute right-2 top-[12.5%] z-0 flex h-[75%] w-[min(42%,9rem)] items-center justify-end"
         aria-hidden
-      />
+      >
+        <motion.img
+          src={sectionImage}
+          alt=""
+          className="max-h-full w-auto max-w-full object-contain opacity-[0.52] brightness-125 drop-shadow-[0_0_18px_rgba(240,199,94,0.55)]"
+          animate={{ y: [-4, 4] }}
+          transition={{ repeat: Infinity, repeatType: 'reverse', duration: 3, ease: 'easeInOut' }}
+        />
+      </div>
       <div className="relative z-[1] flex items-center gap-2 font-serif text-[var(--color-brand-gold)]">
         <Icon name={iconName} size={18} />
         {title}
       </div>
-      <p className="relative z-[1] mt-2 text-sm leading-relaxed text-[var(--color-text-secondary)]/95">{body}</p>
+      <p className="relative z-[1] mt-2 text-sm leading-relaxed text-emerald-300/95">{body}</p>
     </motion.div>
   )
 }
@@ -213,6 +221,7 @@ async function captureNodeToPngBlob(node: HTMLElement): Promise<Blob | null> {
 }
 
 export default function DailyFortune({ personalMode = false }: { personalMode?: boolean }) {
+  const pricePersonality = usePrice('personality')
   const token = useUserStore((s) => s.token)
   const { sign: signParam } = useParams()
   const signSlug = (signParam ?? 'aries').toLowerCase().trim() || 'aries'
@@ -253,6 +262,7 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
 
   const saveCard = async () => {
     if (!data) return
+    trackEvent(FunnelEvents.SHARE_CARD_SAVE, { sign: signSlug })
     setShareBusy(true)
     try {
       const blob = await captureShareHero()
@@ -269,13 +279,14 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
   }
 
   const pageUrl = typeof window !== 'undefined' ? window.location.href : ''
+  const shareUrl = pageUrl ? appendUtm(pageUrl, 'daily_share') : ''
 
   const copyPageLink = async () => {
     try {
-      await navigator.clipboard.writeText(pageUrl)
-      alert('链接已复制')
+      await navigator.clipboard.writeText(shareUrl)
+      toast('链接已复制')
     } catch {
-      alert(pageUrl)
+      toast(shareUrl)
     }
   }
 
@@ -295,7 +306,7 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
       const text = `${data.sign_cn} 今日运势 ${clampScore(data.overall_score)} 分`
       try {
         if (navigator.canShare?.({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'StarLoom 今日运势', text, url: pageUrl })
+          await navigator.share({ files: [file], title: 'StarLoom 今日运势', text, url: shareUrl })
           return
         }
       } catch {
@@ -303,7 +314,7 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
       }
       try {
         if (navigator.share) {
-          await navigator.share({ title: 'StarLoom 今日运势', text: `${text} ${pageUrl}`, url: pageUrl })
+          await navigator.share({ title: 'StarLoom 今日运势', text: `${text} ${shareUrl}`, url: shareUrl })
           return
         }
       } catch {
@@ -487,6 +498,20 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
           ))}
         </div>
 
+        {/* Lightweight CTA after dimension grid */}
+        <Link
+          to="/payment?product=personality"
+          className="mt-6 flex items-center justify-between rounded-2xl border border-[var(--color-brand-gold)]/20 bg-gradient-to-r from-[#1a1535]/80 to-[#12122a]/80 px-4 py-3"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-medium text-[var(--color-text-primary)]">想了解更深层的自己？</p>
+            <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">AI 深度性格报告 · 7 章结构</p>
+          </div>
+          <span className="shrink-0 rounded-lg bg-[var(--color-brand-gold)]/90 px-3 py-1.5 text-xs font-bold text-[#0a0b14]">
+            去看看
+          </span>
+        </Link>
+
         {/* Details */}
         <section className="mt-10 space-y-4">
           <DetailCard
@@ -533,27 +558,49 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
             <p className="font-serif text-[var(--color-brand-gold)]">今日建议</p>
             <p className="mt-2 text-sm text-[var(--color-text-primary)]/95">{data.advice || '—'}</p>
           </div>
-          <div className="flex flex-wrap items-center justify-center gap-8 pt-2">
-            <div className="flex flex-col items-center gap-1">
+          <div className="grid grid-cols-3 gap-3 pt-2">
+            <div className="flex min-w-0 flex-col items-center">
               <div
-                className="h-14 w-14 rounded-2xl border-2 border-white/20 shadow-inner"
+                className="h-16 w-16 shrink-0 rounded-2xl border-2 border-white/20 shadow-inner"
                 style={{ backgroundColor: luckyColorHex }}
               />
-              <span className="text-[10px] text-[var(--color-text-muted)]">幸运色</span>
-              <span className="text-xs text-[var(--color-text-secondary)]">{data.lucky_color || '—'}</span>
+              <div className="mt-1.5 flex min-h-[2.75rem] w-full flex-col items-center justify-start gap-0.5 text-center">
+                <span className="text-[10px] text-[var(--color-text-muted)]">幸运色</span>
+                <span className="line-clamp-2 text-xs leading-tight text-[var(--color-text-secondary)]">
+                  {data.lucky_color || '—'}
+                </span>
+              </div>
             </div>
-            <div className="flex flex-col items-center gap-1">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border-2 border-[var(--color-brand-gold)]/50 bg-black/40 font-mono text-2xl font-bold text-[var(--color-brand-gold)] shadow-[0_0_20px_rgba(240,199,94,0.2)]">
+            <div className="flex min-w-0 flex-col items-center">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl border-2 border-[var(--color-brand-gold)]/50 bg-black/40 font-mono text-2xl font-bold text-[var(--color-brand-gold)] shadow-[0_0_20px_rgba(240,199,94,0.2)]">
                 {data.lucky_number ?? '—'}
               </div>
-              <span className="text-[10px] text-[var(--color-text-muted)]">幸运数字</span>
+              <div className="mt-1.5 flex min-h-[2.75rem] w-full flex-col items-center justify-start gap-0.5 text-center">
+                <span className="text-[10px] text-[var(--color-text-muted)]">幸运数字</span>
+                <span
+                  className="min-h-[1.25rem] text-xs leading-tight text-transparent select-none"
+                  aria-hidden
+                >
+                  &nbsp;
+                </span>
+              </div>
             </div>
-            <img
-              src={zodiacImg}
-              alt=""
-              className="h-16 w-16 shrink-0 rounded-2xl border border-white/10 object-cover opacity-90"
-              aria-hidden
-            />
+            <div className="flex min-w-0 flex-col items-center">
+              <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border-2 border-white/15 bg-black/20 shadow-inner">
+                <img
+                  src={zodiacImg}
+                  alt=""
+                  className="h-full w-full object-cover brightness-110"
+                  aria-hidden
+                />
+              </div>
+              <div className="mt-1.5 flex min-h-[2.75rem] w-full flex-col items-center justify-start gap-0.5 text-center">
+                <span className="text-[10px] text-[var(--color-text-muted)]">星座</span>
+                <span className="line-clamp-1 text-xs leading-tight text-[var(--color-text-secondary)]">
+                  {data.sign_cn}
+                </span>
+              </div>
+            </div>
           </div>
         </section>
 
@@ -587,6 +634,21 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
                 </div>
               </div>
               <p className="line-clamp-2 text-sm text-white/85">{data.summary || '—'}</p>
+              <div className="flex items-center justify-between border-t border-white/10 pt-3">
+                <div className="flex items-center gap-2">
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=56x56&data=${encodeURIComponent(shareUrl || pageUrl)}&bgcolor=08091a&color=f0c75e&format=png`}
+                    alt="QR"
+                    className="h-14 w-14 rounded border border-white/15 bg-white p-0.5"
+                    crossOrigin="anonymous"
+                  />
+                  <div>
+                    <p className="text-[9px] text-white/50">扫码查看完整运势</p>
+                    <p className="text-[10px] font-medium text-[var(--color-brand-gold)]">starloom.cn</p>
+                  </div>
+                </div>
+                <p className="text-[8px] text-white/30">AI 星座分析 · 仅供参考</p>
+              </div>
             </div>
           </div>
           <div className="mt-4 flex gap-2">
@@ -626,7 +688,7 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
             <PayButton
               title="解锁完整性格分析"
               subtitle="7 章结构 · 流式生成 · 我的报告可回看"
-              price="0.10"
+              price={pricePersonality}
               to="/payment?product=personality"
               accent="personality"
               chapterCount={7}

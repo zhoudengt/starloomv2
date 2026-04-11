@@ -22,6 +22,7 @@ class ProductType(str, enum.Enum):
     personality_growth = "personality_growth"
     astro_event = "astro_event"
     season_pass = "season_pass"
+    daily_guide = "daily_guide"
 
 
 class OrderStatus(str, enum.Enum):

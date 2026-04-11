@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 万相 / 流水线生成的文章封面（保留目录结构见 generated/articles/.gitkeep）
+public/generated/articles/**
+!public/generated/articles/.gitkeep

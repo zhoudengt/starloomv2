@@ -20,6 +20,7 @@ export type ReportDetail = {
   sign: string
   input_data: Record<string, unknown>
   content: string
+  content_ir?: Record<string, unknown> | null
   created_at: string | null
   order_id: string | null
 }

@@ -54,6 +54,8 @@ export default function ReportGeneratingShell({
   reportType = 'personality',
   birthDate,
   signCn,
+  stage,
+  progress,
 }: {
   text: string
   loading: boolean
@@ -64,6 +66,10 @@ export default function ReportGeneratingShell({
   birthTime?: string
   /** 配对：双星座文案「A座 × B座」；其它类型可传中文星座名单人展示 */
   signCn?: string
+  /** 后端 SSE stage 事件：planning | generating | composing */
+  stage?: string
+  /** 后端 progress 0–100 */
+  progress?: number
 }) {
   const chapters = CHAPTERS[reportType] ?? CHAPTERS.personality
   const charCount = text.length
@@ -203,9 +209,17 @@ export default function ReportGeneratingShell({
                 <p className="mt-2 max-w-[18rem] text-center font-serif text-xl font-bold text-white drop-shadow-md">
                   {maskTitle}
                 </p>
-                <p className="mt-4 text-sm font-medium text-[var(--color-brand-gold)]">内容生成中…</p>
+                <p className="mt-4 text-sm font-medium text-[var(--color-brand-gold)]">
+                  {stage === 'planning'
+                    ? '正在分析你的星盘…'
+                    : stage === 'composing'
+                      ? '正在整理排版…'
+                      : '内容生成中…'}
+                </p>
                 <p className="mt-2 max-w-[16rem] text-center text-[10px] leading-relaxed text-[var(--color-text-muted)]">
-                  成稿后将展示完整排版；流式字数仍在累计
+                  {progress != null && progress > 0
+                    ? `已完成 ${progress}%`
+                    : '成稿后将展示完整排版；流式字数仍在累计'}
                 </p>
               </div>
             </div>

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReportStreamingKind } from './ReportGeneratingShell'
 
 const SITE_URL = 'https://starloom.com.cn'
+const QR_URL = `${SITE_URL}?utm_source=report_qr&utm_medium=qr_code&utm_campaign=starloom_h5`
 
 function stripMarkdownLite(s: string): string {
   return s
@@ -44,7 +45,7 @@ export default function ReportExportActions({
 
   useEffect(() => {
     let cancelled = false
-    void QRCode.toDataURL(SITE_URL, {
+    void QRCode.toDataURL(QR_URL, {
       width: 120,
       margin: 1,
       color: { dark: '#1a1530ff', light: '#f5f0ffff' },

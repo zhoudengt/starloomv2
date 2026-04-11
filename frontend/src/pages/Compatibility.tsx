@@ -11,10 +11,12 @@ import ReportExportActions from '../components/ReportExportActions'
 import ReportStreamingLoader from '../components/ReportStreamingLoader'
 import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
+import { toast } from '../components/Toast'
 import { useBirthProfileStore } from '../stores/birthProfileStore'
 import { useUserStore } from '../stores/userStore'
 import { CN_CITY_NAMES } from '../utils/cnCities'
 import { SECTION_IMAGES_COMPATIBILITY } from '../utils/reportSectionImages'
+import { appendUtm } from '../utils/utm'
 import { ZODIAC_CN, sunSignFromDate } from '../utils/zodiacCalc'
 
 type PersonOut = {
@@ -60,6 +62,8 @@ export default function Compatibility() {
   const [p2Gender, setP2Gender] = useState<'female' | 'male' | ''>('male')
   const [text, setText] = useState('')
   const [loading, setLoading] = useState(false)
+  const [streamStage, setStreamStage] = useState('')
+  const [streamProgress, setStreamProgress] = useState(0)
   const [doneId, setDoneId] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const autoKickoff = useRef(false)
@@ -79,6 +83,8 @@ export default function Compatibility() {
       setErr(null)
       setLoading(true)
       setText('')
+      setStreamStage('')
+      setStreamProgress(0)
       setDoneId(null)
       try {
         await postSseStream(
@@ -110,6 +116,8 @@ export default function Compatibility() {
           {
             onContent: (t) => setText((prev) => prev + t),
             onDone: (id) => setDoneId(id),
+            onStage: (s) => setStreamStage(s),
+            onProgress: (p) => setStreamProgress(p),
           },
         )
       } catch (e: unknown) {
@@ -244,8 +252,6 @@ export default function Compatibility() {
     navigate('/payment?product=compatibility')
   }
 
-  const onRun = () => void runStream(p1Payload(), p2Payload())
-
   const genLabel = new Date().toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -317,10 +323,10 @@ export default function Compatibility() {
           type="button"
           className="btn-ghost mt-3 w-full rounded-xl py-2.5 text-xs"
           onClick={() => {
-            const url = window.location.href
+            const url = appendUtm(window.location.href, 'compat_invite')
             void navigator.clipboard.writeText(url).then(
-              () => alert('页面链接已复制，发给 TA 一起填写'),
-              () => alert(url),
+              () => toast('页面链接已复制，发给 TA 一起填写'),
+              () => toast(url),
             )
           }}
         >
@@ -336,13 +342,13 @@ export default function Compatibility() {
               preview_score: 87,
             }).then(
               (res) => {
-                const shareUrl = `${window.location.origin}/share/compat/${res.token}`
+                const shareUrl = appendUtm(`${window.location.origin}/share/compat/${res.token}`, 'compat_preview')
                 void navigator.clipboard.writeText(shareUrl).then(
-                  () => alert('预览链接已复制，好友打开可看摘要'),
-                  () => alert(shareUrl),
+                  () => toast('预览链接已复制，好友打开可看摘要'),
+                  () => toast(shareUrl),
                 )
               },
-              () => alert('生成预览链接失败，请登录后重试'),
+              () => toast('生成预览链接失败，请登录后重试'),
             )
           }}
         >
@@ -445,23 +451,26 @@ export default function Compatibility() {
 
         <button
           type="button"
-          onClick={onRun}
-          disabled={loading}
-          className="btn-glow relative w-full rounded-xl py-3 font-medium disabled:opacity-50"
-        >
-          <span className="relative z-[1] font-semibold text-[#0a0b14]">
-            {loading ? '生成中…' : '生成配对报告'}
-          </span>
-        </button>
-        <button
-          type="button"
           onClick={onPay}
-          className="w-full rounded-xl border border-white/20 py-2.5 text-sm text-[var(--color-text-secondary)]"
+          className="btn-glow relative w-full rounded-xl py-3 font-medium"
         >
-          先支付 ¥0.20（保存双方信息）
+          <span className="relative z-[1] font-semibold text-[#0a0b14]">先支付</span>
         </button>
       </div>
-      {err && <p className="mt-4 text-sm text-red-300">{err}</p>}
+      {err && (
+        <div className="mt-4 space-y-2">
+          <p className="text-sm text-red-300">{err}</p>
+          {text && !doneId && (
+            <button
+              type="button"
+              onClick={() => void runStream(p1Payload(), p2Payload())}
+              className="text-xs text-[var(--color-brand-gold)] underline"
+            >
+              重试生成
+            </button>
+          )}
+        </div>
+      )}
       {loading && (
         <ReportStreamingLoader
           loading={loading}
@@ -469,6 +478,8 @@ export default function Compatibility() {
           reportType="compatibility"
           birthDate={p1Date}
           signCn={compatSignCn}
+          stage={streamStage}
+          progress={streamProgress}
         />
       )}
       {doneId && (
@@ -478,6 +489,14 @@ export default function Compatibility() {
             我的报告
           </Link>
         </p>
+      )}
+      {!loading && text && !doneId && err && (
+        <div className="mt-4">
+          <p className="mb-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-200/90">
+            以下为中断前已接收的部分内容，完整报告需重新生成。
+          </p>
+          <MarkdownReport content={text} sectionImages={SECTION_IMAGES_COMPATIBILITY} useCompatibilityCanonicalImages />
+        </div>
       )}
       <div className="mt-8">
         {doneId && text && !loading ? (

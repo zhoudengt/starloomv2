@@ -6,6 +6,7 @@ from decimal import Decimal
 from typing import Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.schemas import PaymentCreateBody
@@ -28,7 +29,27 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/payment", tags=["payment"])
 
-PRODUCT_PRICES: dict[str, Decimal] = {
+_MONEY_QUANT = Decimal("0.01")
+
+
+def _money_equal(a: Decimal, b: Decimal) -> bool:
+    """JSON 金额常为 float 转 Decimal，避免 0.04 != 0.04000000000000001 误判。"""
+    return a.quantize(_MONEY_QUANT) == b.quantize(_MONEY_QUANT)
+
+_PRODUCTION_PRICES: dict[str, Decimal] = {
+    "personality": Decimal("9.90"),
+    "compatibility": Decimal("19.90"),
+    "annual": Decimal("29.90"),
+    "chat": Decimal("9.90"),
+    "personality_career": Decimal("6.90"),
+    "personality_love": Decimal("6.90"),
+    "personality_growth": Decimal("6.90"),
+    "astro_event": Decimal("9.90"),
+    "season_pass": Decimal("12.90"),
+    "daily_guide": Decimal("0.40"),
+}
+
+_TEST_PRICES: dict[str, Decimal] = {
     "personality": Decimal("0.10"),
     "compatibility": Decimal("0.20"),
     "annual": Decimal("0.30"),
@@ -38,7 +59,18 @@ PRODUCT_PRICES: dict[str, Decimal] = {
     "personality_growth": Decimal("0.07"),
     "astro_event": Decimal("0.10"),
     "season_pass": Decimal("0.13"),
+    "daily_guide": Decimal("0.04"),
 }
+
+
+def get_product_prices() -> dict[str, Decimal]:
+    settings = get_settings()
+    if settings.app_env == "production":
+        return _PRODUCTION_PRICES
+    return _TEST_PRICES
+
+
+PRODUCT_PRICES = get_product_prices()
 
 GROUP_BUY_DISCOUNT = Decimal("0.70")
 
@@ -109,7 +141,7 @@ async def payment_create(
 ) -> dict[str, Any]:
     extra = dict(body.extra_data) if body.extra_data else {}
     expected = await _expected_amount_for_payment(db, user, body.product_type, extra)
-    if body.amount != expected:
+    if not _money_equal(body.amount, expected):
         raise HTTPException(status_code=400, detail="Amount mismatch")
 
     if body.pay_method not in ("wechat", "alipay"):
@@ -117,7 +149,10 @@ async def payment_create(
 
     settings = get_settings()
     order_id = generate_order_id()
-    product = ProductType(body.product_type)
+    try:
+        product = ProductType(body.product_type)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid product_type") from e
 
     if not settings.xunhupay_notify_url.strip():
         raise HTTPException(status_code=503, detail="Payment not configured: XUNHUPAY_NOTIFY_URL")
@@ -138,7 +173,14 @@ async def payment_create(
         extra_data=extra,
     )
     db.add(order)
-    await db.flush()
+    try:
+        await db.flush()
+    except SQLAlchemyError as e:
+        logger.exception("payment_create flush failed (schema/DB?)")
+        raise HTTPException(
+            status_code=503,
+            detail="订单暂无法保存，请稍后重试。若反复出现请联系客服。",
+        ) from e
 
     name_map = {
         "personality": "星座性格分析报告",
@@ -150,13 +192,14 @@ async def payment_create(
         "personality_growth": "性格报告·成长深潜包",
         "astro_event": "天象事件参考分析",
         "season_pass": "星运月卡",
+        "daily_guide": "每日星运深析",
     }
     return_url = f"{settings.frontend_url.rstrip('/')}/payment/result?order_id={order_id}&auto=1"
     try:
         xh = await create_xunhupay_payment(
             settings,
             pay_method=body.pay_method,
-            name=name_map[body.product_type],
+            name=name_map.get(body.product_type, "星运服务"),
             price=expected,
             order_id=order_id,
             return_url=return_url,
@@ -205,7 +248,7 @@ async def payment_notify(request: Request, db: AsyncSession = Depends(get_db)) -
         return Response(content="success", media_type="text/plain")
 
     pay_amount = Decimal(str(data.get("total_fee") or "0"))
-    if pay_amount != order.amount:
+    if not _money_equal(pay_amount, order.amount):
         raise HTTPException(status_code=400, detail="Amount mismatch")
 
     if order.status == OrderStatus.paid:
@@ -229,6 +272,17 @@ def _order_status_payload(order: Order) -> dict[str, Any]:
         "product_type": order.product_type.value,
         "amount": str(order.amount),
         "extra_data": order.extra_data or {},
+    }
+
+
+@router.get("/prices")
+async def payment_prices() -> dict[str, Any]:
+    """Return current product prices (test vs production based on APP_ENV)."""
+    prices = get_product_prices()
+    settings = get_settings()
+    return {
+        "prices": {k: str(v) for k, v in prices.items()},
+        "env": settings.app_env,
     }
 
 

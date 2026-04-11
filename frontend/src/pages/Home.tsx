@@ -1,12 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Link } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { fetchDailyAll, fetchSigns } from '../api/constellation'
 import { AnimatedUserCount } from '../components/AnimatedUserCount'
 import { PayButton } from '../components/PayButton'
+import { PracticalGuideSection } from '../components/PracticalGuideSection'
 import { StarryBackground } from '../components/StarryBackground'
+import { FortuneArticleCarousel } from '../components/FortuneArticleCarousel'
 import { ZodiacCard } from '../components/ZodiacCard'
 import { Icon } from '../components/icons/Icon'
+import { usePrice } from '../hooks/usePrices'
+import { sunSignFromDate } from '../utils/zodiacCalc'
 
 const container = {
   hidden: { opacity: 0 },
@@ -22,9 +27,20 @@ const item = {
 }
 
 export default function Home() {
+  const navigate = useNavigate()
+  const [quickDate, setQuickDate] = useState('')
   const { data: signsData } = useQuery({ queryKey: ['signs'], queryFn: fetchSigns })
   const { data: dailyAll } = useQuery({ queryKey: ['dailyAll'], queryFn: fetchDailyAll })
 
+  const onQuickDateGo = () => {
+    if (!quickDate) return
+    const sign = sunSignFromDate(quickDate)
+    navigate(`/daily/${sign}`)
+  }
+
+  const pricePersonality = usePrice('personality')
+  const priceCompat = usePrice('compatibility')
+  const priceAnnual = usePrice('annual')
   const scoreMap = new Map(dailyAll?.items.map((i) => [i.sign, i.overall_score]) ?? [])
 
   const today = new Date().toLocaleDateString('zh-CN', {
@@ -77,35 +93,42 @@ export default function Home() {
             </Link>
           </motion.div>
 
+          <div className="mx-auto mt-6 flex max-w-[280px] items-center gap-2">
+            <input
+              type="date"
+              value={quickDate}
+              onChange={(e) => setQuickDate(e.target.value)}
+              className="input-cosmic flex-1 text-sm"
+              placeholder="输入生日"
+            />
+            <button
+              type="button"
+              onClick={onQuickDateGo}
+              disabled={!quickDate}
+              className="shrink-0 rounded-xl bg-[var(--color-brand-gold)]/90 px-4 py-2.5 text-sm font-semibold text-[#0a0b14] disabled:opacity-40"
+            >
+              看运势
+            </button>
+          </div>
+          <p className="mt-2 text-[10px] text-[var(--color-text-muted)]">输入生日，一键查看今日星座运势</p>
+
           <p className="mt-5 flex flex-wrap items-center justify-center gap-2 text-[11px] leading-relaxed text-[var(--color-text-tertiary)]">
             <span>已为</span>
             <AnimatedUserCount />
             <span>位星友完成星盘解读参考</span>
           </p>
-
-          <div className="mx-auto mt-8 flex max-w-sm flex-wrap items-center justify-center gap-x-5 gap-y-2 border-y border-white/[0.08] py-4 text-[11px] text-[var(--color-text-secondary)]">
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-brand-cyan)] shadow-[0_0_8px_#00e5ff]" />
-              NASA 天文数据
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-brand-violet)] shadow-[0_0_8px_#8b5cf6]" />
-              AI 深度分析
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#ffd700] shadow-[0_0_8px_#ffd700]" />
-              流式生成可回看
-            </span>
-          </div>
         </motion.header>
 
-        <motion.section variants={item} className="relative z-[1] mb-2 flex items-center justify-between px-0.5">
-          <h2 className="bg-gradient-to-r from-white to-[#c4b5fd] bg-clip-text font-serif text-lg font-semibold tracking-tight text-transparent">
+        <motion.section variants={item} className="relative z-[1] mb-2 flex items-center gap-2 px-0.5">
+          <h2 className="shrink-0 bg-gradient-to-r from-white to-[#c4b5fd] bg-clip-text font-serif text-lg font-semibold tracking-tight text-transparent">
             今日运势
           </h2>
+          <p className="min-w-0 flex-1 text-center text-[10px] leading-snug text-emerald-300/95 sm:text-[11px]">
+            免费星座解读.生成你的星盘名片
+          </p>
           <Link
             to="/fortunes"
-            className="flex items-center gap-0.5 text-xs font-medium text-[var(--color-brand-cyan)] transition-colors active:text-[#ffd700]"
+            className="flex shrink-0 items-center gap-0.5 text-xs font-medium text-[var(--color-brand-cyan)] transition-colors active:text-[#ffd700]"
           >
             全部星座
             <Icon name="chevronRight" size={14} />
@@ -127,35 +150,12 @@ export default function Home() {
           </div>
         </div>
 
-        <motion.section variants={item} className="relative z-[1] section-gap">
-          <Link
-            to="/report/compatibility"
-            className="card-game-glow group relative block min-h-[210px] overflow-hidden rounded-2xl border-2 border-[#ff2d78]/25 shadow-[0_0_40px_rgba(255,45,120,0.15)] transition-all active:scale-[0.99]"
-          >
-            <img
-              src="/illustrations/compatibility-home.png"
-              alt="双人合盘"
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-              loading="lazy"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-[#0a0b14] via-[#0a0b14]/60 to-transparent" />
+        <motion.section variants={item} className="relative z-[1]">
+          <FortuneArticleCarousel />
+        </motion.section>
 
-            <div className="relative z-[1] flex min-h-[210px] flex-col justify-end p-5">
-              <span className="absolute right-3 top-3 rounded-full bg-gradient-to-r from-[#ff2d78] to-[#db2777] px-3 py-1.5 text-xs font-black text-white shadow-lg">
-                ¥0.20
-              </span>
-              <p className="text-lg font-bold leading-snug text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]">
-                测测你和 TA 的匹配度
-              </p>
-              <p className="mt-1.5 text-xs leading-relaxed text-white/80 drop-shadow-[0_1px_4px_rgba(0,0,0,0.4)]">
-                双人合盘 · 输入生日即可生成，支付后解锁完整相处与沟通建议
-              </p>
-              <p className="mt-3 flex items-center gap-1 text-[11px] font-bold text-[#f472b6] drop-shadow-[0_1px_4px_rgba(0,0,0,0.4)]">
-                解锁完整报告
-                <Icon name="chevronRight" size={12} className="inline" />
-              </p>
-            </div>
-          </Link>
+        <motion.section variants={item} className="relative z-[1] section-gap">
+          <PracticalGuideSection />
         </motion.section>
 
         <motion.section variants={item} className="relative z-[1] section-gap space-y-4">
@@ -170,7 +170,7 @@ export default function Home() {
           <PayButton
             title="个人星座性格报告"
             subtitle="7 章深度结构 · 约 3000+ 字参考"
-            price="0.10"
+            price={pricePersonality}
             to="/payment?product=personality"
             accent="personality"
             chapterCount={7}
@@ -178,7 +178,7 @@ export default function Home() {
           <PayButton
             title="星座配对分析"
             subtitle="双人视角 · 契合与沟通建议"
-            price="0.20"
+            price={priceCompat}
             to="/payment?product=compatibility"
             accent="compatibility"
             chapterCount={6}
@@ -186,7 +186,7 @@ export default function Home() {
           <PayButton
             title="年度运势参考"
             subtitle="七章结构 · 全年节奏与月度提示"
-            price="0.30"
+            price={priceAnnual}
             to="/payment?product=annual"
             accent="annual"
             chapterCount={7}

@@ -1,0 +1,31 @@
+# 运营日历 P0：节日权重、禁忌词、活动 CTA 编码（与 docs/spec.md 定价对齐）
+version: 1
+
+banned_words:
+  - 算命
+  - 占卜
+  - 灵验
+  - 百分百
+
+# MM-DD 节日（每年重复）
+holidays:
+  - date: "02-14"
+    weight: 1.4
+    cta: "compatibility"
+    label: "情人节"
+  - date: "12-25"
+    weight: 1.1
+    cta: "personality"
+    label: "年末氛围"
+  - date: "01-01"
+    weight: 1.5
+    cta: "annual"
+    label: "新年"
+
+# 默认可用 CTA 编码
+cta_map:
+  free_daily: "免费今日运势（主页链接）"
+  personality: "深度性格报告 9.9"
+  compatibility: "双人配对 19.9"
+  annual: "年度运势 29.9"
+  chat: "AI 星座顾问对话 9.9"

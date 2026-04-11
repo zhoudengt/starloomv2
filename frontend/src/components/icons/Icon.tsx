@@ -17,6 +17,8 @@ export type IconName =
   | 'briefcase'
   | 'coin'
   | 'leaf'
+  | 'users'
+  | 'moon'
 
 const ZODIAC_GLYPH: Record<string, string> = {
   aries: '♈',
@@ -185,6 +187,21 @@ export function Icon({ name, size = 22, className = '', ...rest }: Props) {
       return (
         <svg width={s} height={s} viewBox="0 0 24 24" className={className} aria-hidden {...rest}>
           <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 6.5 1 8.5a7 7 0 0 1-9 9.5z" {...common} />
+        </svg>
+      )
+    case 'users':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" className={className} aria-hidden {...rest}>
+          <circle cx="9" cy="7" r="3" {...common} />
+          <path d="M2 21v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1" {...common} />
+          <circle cx="17" cy="8" r="2.5" {...common} />
+          <path d="M19.5 15a3.5 3.5 0 0 1 3.5 3.5V21" {...common} />
+        </svg>
+      )
+    case 'moon':
+      return (
+        <svg width={s} height={s} viewBox="0 0 24 24" className={className} aria-hidden {...rest}>
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" {...common} />
         </svg>
       )
     default:

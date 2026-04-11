@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { fetchUserReports } from '../api/reports'
 import { fetchOrders, fetchProfile, patchProfile } from '../api/user'
 import BirthChartWheel from '../components/BirthChartWheel'
-import { StarryBackground } from '../components/StarryBackground'
+import { toast } from '../components/Toast'
 import { Icon } from '../components/icons/Icon'
 import { CN_CITY_NAMES } from '../utils/cnCities'
 import { placementsFromBirth } from '../utils/zodiacCalc'
@@ -60,7 +60,6 @@ export default function Profile() {
 
   return (
     <>
-      <StarryBackground />
       <Link
         to="/"
         className="mb-4 inline-flex items-center gap-1 text-sm text-[var(--color-brand-gold)]"
@@ -124,8 +123,8 @@ export default function Profile() {
                 onClick={() => {
                   const u = `${window.location.origin}/?ref=${profile.data?.referral_code}`
                   void navigator.clipboard.writeText(u).then(
-                    () => alert('已复制邀请链接'),
-                    () => alert(profile.data?.referral_code ?? ''),
+                    () => toast('已复制邀请链接'),
+                    () => toast(profile.data?.referral_code ?? ''),
                   )
                 }}
               >

@@ -1,23 +1,30 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { createPayment, getPaymentStatus, getPendingPayment } from '../api/payment'
-import { StarryBackground } from '../components/StarryBackground'
+import { createPayment, fetchPrices, getPaymentStatus, getPendingPayment } from '../api/payment'
 import { Icon } from '../components/icons/Icon'
 import { useStarloomHydrated } from '../hooks/useStarloomHydrated'
 import { useUserStore } from '../stores/userStore'
+import { FunnelEvents, trackEvent } from '../utils/analytics'
 import { chineseZodiacFromYear } from '../utils/zodiacCalc'
 
-const PRODUCTS: Record<string, { amount: number; label: string; sub: string }> = {
-  personality: { amount: 0.1, label: '个人性格报告', sub: '7 章深度结构 · 流式生成 · 可回看' },
-  compatibility: { amount: 0.2, label: '配对分析', sub: '双人视角 · 相处与沟通建议' },
-  annual: { amount: 0.3, label: '年度运势', sub: '七章结构 · 全年节奏与月度提示' },
-  chat: { amount: 0.1, label: 'AI 顾问对话', sub: '星座情绪陪伴' },
-  personality_career: { amount: 0.07, label: '性格报告 · 职场深潜包', sub: '职业适配 · 协作与领导力' },
-  personality_love: { amount: 0.07, label: '性格报告 · 恋爱深潜包', sub: '亲密关系模式与沟通建议' },
-  personality_growth: { amount: 0.07, label: '性格报告 · 成长深潜包', sub: '人生课题与突破方向' },
-  astro_event: { amount: 0.1, label: '天象事件参考', sub: '水逆/食相等天文节奏分析' },
-  season_pass: { amount: 0.13, label: '星运月卡', sub: '30 天深度运势与专属内容' },
+const PRODUCT_META: Record<string, { label: string; sub: string }> = {
+  personality: { label: '个人性格报告', sub: '7 章深度结构 · 流式生成 · 可回看' },
+  compatibility: { label: '配对分析', sub: '双人视角 · 相处与沟通建议' },
+  annual: { label: '年度运势', sub: '七章结构 · 全年节奏与月度提示' },
+  chat: { label: 'AI 顾问对话', sub: '星座情绪陪伴' },
+  personality_career: { label: '性格报告 · 职场深潜包', sub: '职业适配 · 协作与领导力' },
+  personality_love: { label: '性格报告 · 恋爱深潜包', sub: '亲密关系模式与沟通建议' },
+  personality_growth: { label: '性格报告 · 成长深潜包', sub: '人生课题与突破方向' },
+  astro_event: { label: '天象事件参考', sub: '水逆/食相等天文节奏分析' },
+  season_pass: { label: '星运月卡', sub: '30 天深度运势与专属内容' },
+  daily_guide: { label: '每日星运深析', sub: '职场·财富·沟通·情绪 4 维深度分析 · 今日有效' },
+}
+
+const FALLBACK_PRICES: Record<string, number> = {
+  personality: 0.1, compatibility: 0.2, annual: 0.3, chat: 0.1,
+  personality_career: 0.07, personality_love: 0.07, personality_growth: 0.07,
+  astro_event: 0.1, season_pass: 0.13, daily_guide: 0.04,
 }
 
 /** Optional hero art per product for checkout card */
@@ -30,6 +37,7 @@ const PRODUCT_HERO: Partial<Record<string, string>> = {
   personality_growth: '/illustrations/personality-hero.png',
   astro_event: '/illustrations/astro-event.png',
   season_pass: '/illustrations/season-moon.png',
+  daily_guide: '/illustrations/guide-career.png',
 }
 
 const PREVIEW_CHAPTERS: Record<string, string[]> = {
@@ -42,6 +50,7 @@ const PREVIEW_CHAPTERS: Record<string, string[]> = {
   personality_growth: ['人生课题梳理', '突破方向与习惯', '隐藏天赋与行动清单'],
   astro_event: ['天象背景说明', '可能感受与节奏', '行动与复盘建议'],
   season_pass: ['每日深度运势', '每周关键提醒', '月末复盘与角色卡收集'],
+  daily_guide: ['职场星运深析', '财富密码深析', '人际沟通深析', '情绪能量深析'],
 }
 
 function buildExtraData(product: string, search: URLSearchParams): Record<string, unknown> | undefined {
@@ -77,6 +86,14 @@ function buildExtraData(product: string, search: URLSearchParams): Record<string
     if (ek) o.event_key = ek
     return Object.keys(o).length ? o : undefined
   }
+  if (product === 'daily_guide') {
+    const now = new Date()
+    const bjHour = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Shanghai' }))
+    const y = bjHour.getFullYear()
+    const m = String(bjHour.getMonth() + 1).padStart(2, '0')
+    const d = String(bjHour.getDate()).padStart(2, '0')
+    return { guide_date: `${y}-${m}-${d}` }
+  }
   if (product === 'compatibility') {
     try {
       const raw = sessionStorage.getItem('starloom_pay_compat')
@@ -101,6 +118,12 @@ function isWeChatUa(): boolean {
   return /MicroMessenger/i.test(navigator.userAgent)
 }
 
+/** 抖音等 App 内置浏览器，虎皮椒收银台易出现绿钮无响应 */
+function isDouyinOrInAppUa(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /aweme|BytedanceWebview|douyin|抖音/i.test(navigator.userAgent)
+}
+
 export default function Payment() {
   const hydrated = useStarloomHydrated()
   const token = useUserStore((s) => s.token)
@@ -108,10 +131,28 @@ export default function Payment() {
   const [search] = useSearchParams()
   const pollAttempts = useRef(0)
   const product = search.get('product') ?? 'personality'
-  const cfg = PRODUCTS[product] ?? PRODUCTS.personality
+  const meta = PRODUCT_META[product] ?? PRODUCT_META.personality
   /** 当前仅签约微信支付，支付宝入口隐藏 */
   const method: 'wechat' = 'wechat'
   const canPay = hydrated && !!token
+
+  const { data: priceData } = useQuery({
+    queryKey: ['prices'],
+    queryFn: fetchPrices,
+    staleTime: 300_000,
+  })
+  const serverPrices = priceData?.prices
+  const baseAmount = (() => {
+    const fb = FALLBACK_PRICES[product]
+    if (serverPrices) {
+      const key = product in PRODUCT_META ? product : 'personality'
+      const raw = serverPrices[key]
+      if (raw != null && raw !== '') return Number(raw)
+      if (fb != null) return fb
+      return Number(serverPrices['personality'] ?? '0.10')
+    }
+    return fb ?? 0.1
+  })()
 
   const extraData = useMemo(() => {
     const base = buildExtraData(product, search) ?? {}
@@ -123,15 +164,15 @@ export default function Payment() {
   const payAmount = useMemo(() => {
     const g = search.get('group')
     if (g && (product === 'compatibility' || product === 'personality')) {
-      return Math.round(cfg.amount * 0.7 * 100) / 100
+      return Math.round(baseAmount * 0.7 * 100) / 100
     }
-    return cfg.amount
-  }, [cfg.amount, product, search])
+    return baseAmount
+  }, [baseAmount, product, search])
 
   const mutation = useMutation({
     mutationFn: () =>
       createPayment({
-        product_type: product in PRODUCTS ? product : 'personality',
+        product_type: product in PRODUCT_META ? product : 'personality',
         amount: payAmount,
         pay_method: method,
         extra_data: extraData,
@@ -140,10 +181,12 @@ export default function Payment() {
 
   const mobile = useMemo(() => isMobileUa(), [])
   const weChat = useMemo(() => isWeChatUa(), [])
+  const douyinOrInApp = useMemo(() => isDouyinOrInAppUa(), [])
+  const [copyTip, setCopyTip] = useState(false)
 
   const { data: pendingData } = useQuery({
     queryKey: ['paymentPending', product, token],
-    queryFn: () => getPendingPayment(product in PRODUCTS ? product : 'personality'),
+    queryFn: () => getPendingPayment(product in PRODUCT_META ? product : 'personality'),
     enabled: hydrated && !!token && !mutation.data,
     staleTime: 20_000,
   })
@@ -182,7 +225,20 @@ export default function Payment() {
     return base
   }, [product])
 
+  const copyPageUrl = () => {
+    if (typeof window === 'undefined') return
+    const url = window.location.href
+    void navigator.clipboard.writeText(url).then(
+      () => {
+        setCopyTip(true)
+        window.setTimeout(() => setCopyTip(false), 2500)
+      },
+      () => {},
+    )
+  }
+
   const onPay = () => {
+    trackEvent(FunnelEvents.PAYMENT_INITIATED, { product, amount: payAmount })
     mutation.mutate(undefined, {
       onSuccess: (data) => {
         if (data.order_id) {
@@ -207,7 +263,6 @@ export default function Payment() {
 
   return (
     <>
-      <StarryBackground />
       <Link
         to="/"
         className="mb-4 inline-flex items-center gap-1 text-sm text-[var(--color-brand-gold)]"
@@ -245,8 +300,8 @@ export default function Payment() {
           </div>
         ) : null}
         <p className="text-[10px] tracking-widest text-[var(--color-text-muted)]">本次购买</p>
-        <p className="mt-2 font-serif text-lg text-[var(--color-text-primary)]">{cfg.label}</p>
-        <p className="mt-1 text-xs text-[var(--color-text-secondary)]/90">{cfg.sub}</p>
+        <p className="mt-2 font-serif text-lg text-[var(--color-text-primary)]">{meta.label}</p>
+        <p className="mt-1 text-xs text-[var(--color-text-secondary)]/90">{meta.sub}</p>
         <div className="mt-4 flex flex-wrap items-end justify-between gap-3">
           <div className="flex items-baseline gap-1">
             <span className="text-sm text-[var(--color-text-muted)]">¥</span>
@@ -292,6 +347,38 @@ export default function Payment() {
       </div>
 
       <div className="card-elevated mt-6 space-y-4 p-4">
+        <div
+          className={`rounded-xl border px-3 py-2.5 text-[11px] leading-relaxed ${
+            weChat || douyinOrInApp
+              ? 'border-amber-500/35 bg-amber-500/[0.08]'
+              : 'border-white/[0.08] bg-white/[0.03]'
+          }`}
+        >
+          <p className="font-medium text-[var(--color-text-primary)]">支付提示</p>
+          <p className="mt-1.5 text-[var(--color-text-secondary)]">
+            在微信、抖音等 App 内打开时，跳转后的虎皮椒收银台可能出现
+            <span className="text-amber-200/95">「微信支付」按钮无反应</span>
+            。请优先使用
+            <strong className="text-[var(--color-text-primary)]"> 手机系统浏览器（Safari / Chrome） </strong>
+            打开本站再完成支付。
+          </p>
+          <p className="mt-1.5 text-[var(--color-text-tertiary)]">
+            支付页由虎皮椒提供；若仍无法付款，可使用其页面上的客服联系方式，或点「已支付返回」后回到本站查看结果。
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={copyPageUrl}
+              className="rounded-lg border border-white/15 bg-black/30 px-3 py-1.5 text-[11px] font-medium text-[var(--color-brand-gold)] active:opacity-90"
+            >
+              复制本页链接
+            </button>
+            {copyTip ? (
+              <span className="text-[11px] text-emerald-300/95">已复制，请到系统浏览器粘贴打开</span>
+            ) : null}
+          </div>
+        </div>
+
         <p className="text-sm text-[var(--color-text-secondary)]">支付方式</p>
         <div className="rounded-xl border border-white/10 bg-black/30 p-1">
           <div className="relative flex w-full rounded-lg py-2.5 text-center text-sm font-medium text-[#0a0b14]">

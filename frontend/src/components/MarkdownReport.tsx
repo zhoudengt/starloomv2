@@ -1,7 +1,8 @@
 import { motion } from 'framer-motion'
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import type { ContentBlock, ContentIr } from '../types/contentIr'
 import {
   genderizeSectionImagePath,
   isPersonalityStrengthsSectionTitle,
@@ -12,6 +13,7 @@ import {
   stripLeadingSectionIndex,
   type ReportGender,
 } from '../utils/reportSectionImages'
+import IRRenderer, { splitContentIrIntoSections } from './IRRenderer'
 
 /**
  * Split markdown on `## ` headings. Lines before the first `## ` are **preamble** and are
@@ -60,6 +62,7 @@ export type SectionImageMap = Record<string, string>
 
 export default function MarkdownReport({
   content,
+  contentIr,
   header,
   sectionImages,
   gender,
@@ -71,6 +74,8 @@ export default function MarkdownReport({
   useAnnualCanonicalImages = false,
 }: {
   content: string
+  /** 当存在时优先：按 IR 分节渲染（与 content 并存，流式完成后后端写入） */
+  contentIr?: ContentIr | null
   header?: ReactNode
   /** Keyword (substring) → image public path; longest keyword wins per section title */
   sectionImages?: SectionImageMap
@@ -80,12 +85,28 @@ export default function MarkdownReport({
   useCompatibilityCanonicalImages?: boolean
   useAnnualCanonicalImages?: boolean
 }) {
-  const sections = useMemo(() => splitSections(content), [content])
+  const sections = useMemo((): (
+    | { title: string; mode: 'ir'; blocks: ContentBlock[] }
+    | { title: string; mode: 'md'; body: string }
+  )[] => {
+    if (contentIr?.blocks?.length) {
+      return splitContentIrIntoSections(contentIr).map((s) => ({ ...s, mode: 'ir' as const }))
+    }
+    return splitSections(content).map((s) => ({
+      title: s.title,
+      body: s.body,
+      mode: 'md' as const,
+    }))
+  }, [content, contentIr])
   const [open, setOpen] = useState<Record<number, boolean>>(() =>
     Object.fromEntries(sections.map((_, i) => [i, true])),
   )
 
-  if (!content.trim()) return null
+  useEffect(() => {
+    setOpen(Object.fromEntries(sections.map((_, i) => [i, true])))
+  }, [sections.length])
+
+  if (!content.trim() && !contentIr?.blocks?.length) return null
 
   return (
     <article className="space-y-3 text-[var(--color-text-primary)]/95">
@@ -146,7 +167,13 @@ export default function MarkdownReport({
                 <div
                   className={`markdown-report px-4 py-4 text-[15px] leading-[1.7] text-[var(--color-text-secondary)] [&_a]:text-[var(--color-brand-gold)] [&_h3]:mt-3 [&_h3]:text-[var(--color-text-primary)] [&_li]:my-1.5 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_strong]:text-[var(--color-text-primary)] [&_ul]:list-disc [&_ul]:pl-5${strengths ? ' markdown-report--strengths' : ''}`}
                 >
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{sec.body || '（本节暂无内容）'}</ReactMarkdown>
+                  {sec.mode === 'ir' ? (
+                    <IRRenderer blocks={sec.blocks} />
+                  ) : (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {sec.body || '（本节暂无内容）'}
+                    </ReactMarkdown>
+                  )}
                 </div>
               </div>
             )

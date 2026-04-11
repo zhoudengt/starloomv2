@@ -1,12 +1,13 @@
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { postSseStream } from '../api/stream'
-import { StarryBackground } from '../components/StarryBackground'
 import { Icon } from '../components/icons/Icon'
 import { useUserStore } from '../stores/userStore'
 
 type Msg = { role: 'user' | 'assistant'; text: string }
+
+const FREE_LIMIT = 5
 
 const QUICK = [
   { text: '今日运势要注意什么？', icon: 'sparkle' as const },
@@ -31,19 +32,34 @@ function TypingBubble() {
   )
 }
 
+function LimitCard() {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="mx-auto mt-4 w-full rounded-2xl border border-[var(--color-brand-gold)]/30 bg-gradient-to-br from-[#1a103c]/60 to-[#0a0b14] p-4 text-center"
+    >
+      <p className="text-sm font-semibold text-[var(--color-brand-gold)]">今日免费额度已用完</p>
+      <p className="mt-1 text-xs text-[var(--color-text-tertiary)]">购买 AI 顾问可享无限对话</p>
+      <Link
+        to="/payment?product=chat"
+        className="btn-glow mt-3 inline-flex items-center justify-center rounded-xl px-6 py-2.5 text-sm font-semibold"
+      >
+        解锁无限对话
+      </Link>
+    </motion.div>
+  )
+}
+
 function friendlyChatError(e: unknown): string {
   if (!(e instanceof Error)) return '暂时无法连接顾问，请稍后重试。'
   const raw = e.message
   try {
     const j = JSON.parse(raw) as { detail?: string }
-    if (j.detail?.includes('order_id')) {
-      return '请先购买对话套餐，或从「支付完成」页进入本页（需携带订单）。'
-    }
     if (j.detail) return j.detail
   } catch {
     /* not JSON */
   }
-  if (raw.includes('order_id')) return '请先购买对话，或从支付完成页进入。'
   return raw || '暂时无法连接顾问，请稍后重试。'
 }
 
@@ -55,15 +71,18 @@ export default function Chat() {
   const [focused, setFocused] = useState(false)
   const [messages, setMessages] = useState<Msg[]>([])
   const [loading, setLoading] = useState(false)
+  const [remaining, setRemaining] = useState<number | null>(null)
+  const [hitLimit, setHitLimit] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const send = async (text: string) => {
     const t = text.trim()
-    if (!token || !t) return
+    if (!token || !t || hitLimit) return
     setMessages((m) => [...m, { role: 'user', text: t }])
     setInput('')
     setLoading(true)
     let acc = ''
+    let gotLimit = false
     setMessages((m) => [...m, { role: 'assistant', text: '' }])
     try {
       await postSseStream(
@@ -71,29 +90,49 @@ export default function Chat() {
         { message: t, ...(orderId ? { order_id: orderId } : {}) },
         token,
         {
-        onContent: (chunk) => {
-          acc += chunk
-          setMessages((m) => {
-            const next = [...m]
-            const last = next[next.length - 1]
-            if (last?.role === 'assistant') {
-              next[next.length - 1] = { role: 'assistant', text: acc }
+          onContent: (chunk) => {
+            acc += chunk
+            setMessages((m) => {
+              const next = [...m]
+              const last = next[next.length - 1]
+              if (last?.role === 'assistant') {
+                next[next.length - 1] = { role: 'assistant', text: acc }
+              }
+              return next
+            })
+          },
+          onRaw: (obj) => {
+            if (obj.type === 'limit') {
+              gotLimit = true
+              setHitLimit(true)
+              setRemaining(0)
+              setMessages((m) => {
+                const next = [...m]
+                const last = next[next.length - 1]
+                if (last?.role === 'assistant') {
+                  next[next.length - 1] = { role: 'assistant', text: String(obj.message ?? '') }
+                }
+                return next
+              })
             }
-            return next
-          })
+            if (obj.type === 'done' && typeof obj.remaining === 'number') {
+              setRemaining(obj.remaining as number)
+            }
+          },
         },
-      },
       )
     } catch (err) {
-      const msg = friendlyChatError(err)
-      setMessages((m) => {
-        const next = [...m]
-        const last = next[next.length - 1]
-        if (last?.role === 'assistant' && !last.text) {
-          next[next.length - 1] = { role: 'assistant', text: msg }
-        }
-        return next
-      })
+      if (!gotLimit) {
+        const msg = friendlyChatError(err)
+        setMessages((m) => {
+          const next = [...m]
+          const last = next[next.length - 1]
+          if (last?.role === 'assistant' && !last.text) {
+            next[next.length - 1] = { role: 'assistant', text: msg }
+          }
+          return next
+        })
+      }
     } finally {
       setLoading(false)
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 100)
@@ -102,7 +141,6 @@ export default function Chat() {
 
   return (
     <>
-      <StarryBackground />
       <Link
         to="/"
         className="mb-4 inline-flex items-center gap-1 text-sm text-[var(--color-brand-gold)]"
@@ -121,12 +159,23 @@ export default function Chat() {
           </span>
           <h1 className="mt-2 font-serif text-2xl text-[var(--color-brand-gold)]">AI 星座顾问</h1>
           <p className="mt-2 text-xs leading-relaxed text-[var(--color-text-tertiary)]">
-            {orderId
-              ? '已关联本笔订单，可直接对话（请先完成支付）。'
-              : '未携带订单时请从支付完成页进入，或先购买 AI 顾问对话。'}
+            每日 {FREE_LIMIT} 次免费对话，随时畅聊星座话题
           </p>
         </div>
       </div>
+
+      <AnimatePresence>
+        {remaining !== null && !hitLimit && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="mt-2 text-center text-xs text-[var(--color-text-muted)]"
+          >
+            今日剩余 <span className="font-semibold text-[var(--color-brand-gold)]">{remaining}/{FREE_LIMIT}</span> 次免费对话
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       <div className="mt-4 flex max-h-[48vh] flex-col gap-3 overflow-y-auto rounded-2xl border border-white/10 bg-black/25 p-3 backdrop-blur-sm">
         {messages.length === 0 && (
@@ -170,13 +219,15 @@ export default function Chat() {
         <div ref={bottomRef} />
       </div>
 
+      {hitLimit && <LimitCard />}
+
       <div className="mt-3 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {QUICK.map((q) => (
           <motion.button
             key={q.text}
             type="button"
             whileTap={{ scale: 0.96 }}
-            disabled={loading || !token}
+            disabled={loading || !token || hitLimit}
             onClick={() => void send(q.text)}
             className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-black/20 px-3 py-2 text-xs text-[var(--color-text-secondary)] disabled:opacity-50"
           >
@@ -193,8 +244,9 @@ export default function Chat() {
       >
         <input
           className="min-w-0 flex-1 bg-transparent px-3 py-2.5 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-muted)]"
-          placeholder="说说你的困惑…"
+          placeholder={hitLimit ? '今日额度已用完…' : '说说你的困惑…'}
           value={input}
+          disabled={hitLimit}
           onChange={(e) => setInput(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
@@ -203,21 +255,13 @@ export default function Chat() {
         <motion.button
           type="button"
           whileTap={{ rotate: 12 }}
-          disabled={loading || !input.trim() || !token}
+          disabled={loading || !input.trim() || !token || hitLimit}
           onClick={() => void send(input)}
           className="flex shrink-0 items-center justify-center rounded-xl bg-[var(--color-brand-gold)] px-4 py-2 font-semibold text-[#0a0b14] disabled:opacity-50"
         >
           <Icon name="send" size={18} />
         </motion.button>
       </div>
-      {!orderId ? (
-        <Link
-          to="/payment?product=chat"
-          className="btn-glow relative mt-4 flex w-full items-center justify-center rounded-xl py-3.5 text-sm font-semibold"
-        >
-          购买 AI 顾问对话 ¥0.10
-        </Link>
-      ) : null}
     </>
   )
 }

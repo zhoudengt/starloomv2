@@ -4,8 +4,10 @@ import { Link, Navigate, Outlet, Route, Routes, useLocation } from 'react-router
 import { login } from './api/user'
 import BottomNav from './components/BottomNav'
 import LoadingAnalysis from './components/LoadingAnalysis'
+import { ToastContainer } from './components/Toast'
 import { useStarloomHydrated } from './hooks/useStarloomHydrated'
 import { useUserStore } from './stores/userStore'
+import { trackPageView } from './utils/analytics'
 
 const Home = lazy(() => import('./pages/Home'))
 const FortuneHub = lazy(() => import('./pages/FortuneHub'))
@@ -23,12 +25,19 @@ const ReportView = lazy(() => import('./pages/ReportView'))
 const ReportAstroEvent = lazy(() => import('./pages/ReportAstroEvent'))
 const SeasonToday = lazy(() => import('./pages/SeasonToday'))
 const ShareCompatPreview = lazy(() => import('./pages/ShareCompatPreview'))
+const Article = lazy(() => import('./pages/Article'))
+const Guide = lazy(() => import('./pages/Guide'))
 
 function Shell() {
   const location = useLocation()
   const hydrated = useStarloomHydrated()
+  const token = useUserStore((s) => s.token)
   const setToken = useUserStore((s) => s.setToken)
   const ensureDevice = useUserStore((s) => s.ensureDevice)
+
+  useEffect(() => {
+    trackPageView(location.pathname)
+  }, [location.pathname])
 
   useEffect(() => {
     if (!hydrated) return
@@ -58,7 +67,7 @@ function Shell() {
       }
     }
     void run()
-  }, [hydrated, ensureDevice, setToken])
+  }, [hydrated, ensureDevice, setToken, token])
 
   return (
     <div className="relative min-h-screen">
@@ -91,13 +100,16 @@ function Shell() {
             >
               配对合盘
             </Link>
-            <Link
-              to="/chat"
+            <a
+              href="mailto:643795362@qq.com"
               className="text-[var(--color-brand-violet)] transition-colors active:text-[var(--color-brand-gold)]"
             >
-              AI 顾问
-            </Link>
+              联系我们
+            </a>
           </div>
+          <p className="text-[10px] text-[var(--color-text-tertiary)]">
+            提意见 · 共创 · 投稿 · 合作 · 643795362@qq.com
+          </p>
           <p>本服务基于星座文化提供性格分析与运势参考，仅供娱乐，不构成任何决策建议。</p>
         </footer>
       </div>
@@ -108,6 +120,8 @@ function Shell() {
 
 export default function App() {
   return (
+    <>
+    <ToastContainer />
     <Routes>
       <Route element={<Shell />}>
         <Route path="/" element={<Home />} />
@@ -127,8 +141,11 @@ export default function App() {
         <Route path="/report/astro-event" element={<ReportAstroEvent />} />
         <Route path="/season/today" element={<SeasonToday />} />
         <Route path="/share/compat/:token" element={<ShareCompatPreview />} />
+        <Route path="/articles/:slug" element={<Article />} />
+        <Route path="/guide/:category" element={<Guide />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </>
   )
 }
