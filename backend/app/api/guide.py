@@ -176,8 +176,20 @@ async def guide_full(
     )
     guide = result.scalar_one_or_none()
 
+    # 与 /preview 缺行占位一致：返回 200，避免详情页拿不到 fullData → 支付区无法渲染
     if not guide:
-        raise HTTPException(status_code=404, detail="Guide content not available yet")
+        return GuideFullResponse(
+            category=cat_enum.value,
+            label=meta.get("label", cat_enum.value),
+            sign=slug,
+            date=date_str,
+            title=f"今日{meta['label']}",
+            content="",
+            preview="内容生成中，请稍后刷新…",
+            transit_basis=None,
+            has_access=has_access,
+            content_ir=None,
+        )
 
     content = guide.content if has_access else ""
     content_ir: Optional[dict[str, Any]] = guide.content_ir if has_access else None
