@@ -1,4 +1,8 @@
-.cursor/
+# Cursor：默认忽略 IDE 状态；**跟踪** `.cursor/rules/*.mdc` 供团队共享
+.cursor/*
+!.cursor/rules/
+.cursor/rules/*
+!.cursor/rules/*.mdc
 
 backend/.venv/
 backend/.env

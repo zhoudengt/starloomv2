@@ -1,7 +1,7 @@
 # StarLoom v2 项目摘要
 
 > 本文件是所有 AI 模型了解项目的**唯一入口**。任何代码改动后必须同步更新本文件。
-> 最后更新: 2026-04-11
+> 最后更新: 2026-04-12
 
 **多角色协作母版**（gstack 方法论适配）：`~/Desktop/StarLoom-Team-Collaboration-System.md`；Cursor 内见 `.cursor/rules/multi-role-review.mdc`、`opus-delegation.mdc`、`design-review.mdc`。变更日志需包含 **盈利影响** 列。
 
@@ -259,6 +259,7 @@ starloomv2/
 
 | 日期 | 改动 | 涉及文件（节选） | 盈利影响 |
 |------|------|------------------|----------|
+| 2026-04-12 | **发布流程规则**：代码必须本地改并提交仓库；生产仅从仓库拉取后再构建发布；禁止服务器直接改业务代码；新增 `.cursor/rules/deployment-workflow.mdc`，`.cursorrules` 与 `DEPLOY.md` 对齐；`.gitignore` 改为仅跟踪 `.cursor/rules/*.mdc` 以便规则入库 | `.cursor/rules/deployment-workflow.mdc`、`.cursorrules`、`DEPLOY.md`、`.gitignore`、`PROJECT_SUMMARY.md` | 无直接营收；可追溯、可回滚，降低线上漂移与误覆盖风险 |
 | 2026-04-11 | **Content IR v1**：Markdown→结构化 JSON（`markdown_to_ir`）；`articles.body_ir`、`daily_guides.content_ir`、`reports.content_ir`（需执行 `scripts/migrations/add_content_ir_columns.sql`）；轮播 brief 带 `reading_minutes`/`subtitle`；API 返回 IR；前端 `IRRenderer` + 文章/深析/报告视图优先 IR；`scripts/backfill_content_ir.py` 回填旧数据 | `backend/app/services/ir_converter.py`、`backend/app/content_ir_types.py`、`backend/app/models/*`、`backend/app/api/content.py`、`guide.py`、`constellation.py`、`article_scraper.py`、`guide_generator.py`、`_report_helpers.py`、`frontend/src/types/contentIr.ts`、`frontend/src/components/IRRenderer.tsx`、`MarkdownReport.tsx`、`Article.tsx`、`Guide.tsx`、`ReportView.tsx`、`FortuneArticleCarousel.tsx`、`scripts/migrations/add_content_ir_columns.sql`、`scripts/backfill_content_ir.py`、`PROJECT_SUMMARY.md` | 长文可读性与组件化展示提升转化与停留；老数据需迁移+回填 |
 | 2026-04-11 | 支付 500：订单 `flush` 捕获 `SQLAlchemyError` 返回 503+中文说明；`ProductType` 非法 400；商品名 `name_map.get` 兜底；Axios 对 5xx/无 detail 统一中文提示 | `backend/app/api/payment.py`、`frontend/src/api/client.ts`、`PROJECT_SUMMARY.md` | 降低支付页「status code 500」客诉与困惑 |
 | 2026-04-11 | 429 限流：后端各路径限流改为 `config` 可配（默认支付创建 12/60s，原 5）；响应 `Retry-After`；前端 Axios 将 429 译为中文提示 | `backend/app/config.py`、`backend/app/middleware/rate_limit.py`、`backend/.env.example`、`frontend/src/api/client.ts`、`PROJECT_SUMMARY.md` | 减少测试/重试误伤；提示可理解 |
