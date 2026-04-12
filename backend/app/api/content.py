@@ -6,13 +6,15 @@ import logging
 from datetime import date, timedelta
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from pydantic import BaseModel
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
+from app.services.article_scraper import CAROUSEL_TAG
+from app.services.daily_generation_kick import kick_carousel_for_today_if_needed
 from app.utils.beijing_date import fortune_date_beijing
 from app.models.article import (
     Article,
@@ -77,7 +79,7 @@ class TipsResponse(BaseModel):
 class ArticlesResponse(BaseModel):
     items: list[ArticleBrief]
     total: int
-    # carousel=1 时：today=仅北京当日发文；fallback=回退窗口内；empty=无匹配
+    # carousel=1 时：today=北京当日；yesterday=无当日则用昨日发文；fallback=更早窗口；empty=无匹配
     carousel_source: Optional[str] = None
 
 
@@ -122,6 +124,7 @@ def _category_filter(category: Optional[str]) -> Optional[ArticleCategory]:
 
 @router.get("/articles", response_model=ArticlesResponse)
 async def list_articles(
+    background_tasks: BackgroundTasks,
     category: Optional[str] = Query(None),
     limit: int = Query(10, ge=1, le=50),
     offset: int = Query(0, ge=0),
@@ -150,9 +153,13 @@ async def list_articles(
 
     settings = get_settings()
     today = fortune_date_beijing()
+    yesterday = today - timedelta(days=1)
     since = today - timedelta(days=settings.article_carousel_fallback_days)
 
-    cond_today = and_(base_pub, Article.publish_date == today)
+    # 首页轮播：仅展示 tags=carousel 的管线文章（与 article_scraper 写入一致）
+    base_carousel = and_(base_pub, Article.tags == CAROUSEL_TAG)
+
+    cond_today = and_(base_carousel, Article.publish_date == today)
     count_today = await db.scalar(select(func.count(Article.id)).where(cond_today)) or 0
     if count_today > 0:
         q = (
@@ -170,10 +177,32 @@ async def list_articles(
             carousel_source="today",
         )
 
+    # 无今日：异步补拉今日轮播（冷却内合并为一次）
+    background_tasks.add_task(kick_carousel_for_today_if_needed)
+
+    cond_yesterday = and_(base_carousel, Article.publish_date == yesterday)
+    count_y = await db.scalar(select(func.count(Article.id)).where(cond_yesterday)) or 0
+    if count_y > 0:
+        q = (
+            select(Article)
+            .where(cond_yesterday)
+            .order_by(Article.id.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await db.execute(q)
+        articles = result.scalars().all()
+        return ArticlesResponse(
+            items=[_article_brief_from_row(a) for a in articles],
+            total=int(count_y),
+            carousel_source="yesterday",
+        )
+
     cond_fb = and_(
-        base_pub,
+        base_carousel,
         Article.publish_date.isnot(None),
         Article.publish_date >= since,
+        Article.publish_date < today,
     )
     count_fb = await db.scalar(select(func.count(Article.id)).where(cond_fb)) or 0
     if count_fb > 0:

@@ -34,7 +34,7 @@ export type TipItem = {
 export type ArticlesResponse = {
   items: ArticleBrief[]
   total: number
-  /** GET /articles?carousel=1 时：today | fallback | empty */
+  /** GET /articles?carousel=1 时：today | yesterday | fallback | empty */
   carousel_source?: string | null
 }
 

@@ -63,8 +63,8 @@ starloomv2/
 | `daily.py` | `GET /api/v1/daily/all`、`GET /api/v1/daily/personal`、`GET /api/v1/daily/{sign}` | 每日运势（含个人/全量） |
 | `reports.py` | `POST /api/v1/report/personality|compatibility|annual|personality-dlc|astro-event` | 付费报告 SSE 流式生成并落库 |
 | `season.py` | `GET /api/v1/season/today` | 当季/今日相关运势聚合接口 |
-| `content.py` | `GET /api/v1/articles`（轮播 brief 含 `subtitle`/`reading_minutes`；`carousel=1`…）、`GET /api/v1/articles/{slug}` 含 **body_ir**（**published + archived** 可读）、`GET /api/v1/tips/today`、分享链接… | H5 文章与每日 tips |
-| `guide.py` | `GET .../guide/{category}`：无当日 `daily_guides` 行时仍 **200** + 占位 preview（与 `/preview` 一致），便于详情页展示付费墙；有数据且解锁后含 **content_ir**；`/preview`、`/access` 同前 | 每日星运深析 |
+| `content.py` | `GET /api/v1/articles`（`carousel=1` 仅 `tags=carousel`；优先今日 → 昨日 → 更早窗口；无今日时 BackgroundTasks 触发当日轮播生成）；轮播 brief 含 `subtitle`/`reading_minutes`；`GET /api/v1/articles/{slug}` 含 **body_ir**（**published + archived** 可读）、`GET /api/v1/tips/today`、分享链接… | H5 文章与每日 tips |
+| `guide.py` | `GET .../guide/{category}`：无今日行则用**昨日**行（`content_row_date`）；皆无则占位 **200**；缺今日时 BackgroundTasks 触发当日深析生成。`/preview` 按类回退昨日；`source_guide_date`；`/access` 同前 | 每日星运深析 |
 | `growth.py` | `/api/v1/growth/me`、`/cards`、`/group-buy`、`/assist/*`、`/share/compatibility` | 增长：积分、季卡、拼团、助力、配对分享 |
 | `payment.py` | `POST /api/v1/payment/create`、`POST .../notify`、`GET .../prices|pending`、`POST .../sync/{order_id}`、`GET .../status/{order_id}` | 虎皮椒下单、回调、询价与状态 |
 | `user.py` | `POST /api/v1/user/login`、`GET|PATCH /api/v1/user/profile`、`GET .../orders`、`GET .../reports` | 设备登录、资料、订单与报告列表 |
@@ -259,6 +259,7 @@ starloomv2/
 
 | 日期 | 改动 | 涉及文件（节选） | 盈利影响 |
 |------|------|------------------|----------|
+| 2026-04-12 | **轮播与深析无今日数据**：轮播 API 仅 `tags=carousel`，顺序 今日→昨日→窗口；无今日时后台触发 `generate_carousel_articles`（冷却）。深析 preview/full 无今日用昨日行，并触发 `generate_all_guides_for_date`（冷却）；响应含 `source_guide_date`/`content_row_date`；首页轮播角标 `yesterday`；Guide 页昨日提示 | `backend/app/api/content.py`、`guide.py`、`services/daily_generation_kick.py`、`frontend/.../FortuneArticleCarousel.tsx`、`Guide.tsx`、`api/content.ts`、`api/guide.ts`、`PROJECT_SUMMARY.md` | 无今日仍可看昨日，减少空窗；后台补拉今日提升转化与留存 |
 | 2026-04-12 | **每日星运深析支付拉不起**：根因是 `GET /guide/{category}` 在库中无当日记录时返回 **404**，前端 `Guide` 页无 `fullData` 只报错，不渲染「立即解锁」。现改为无记录时返回 **200** + 占位文案，与 `/preview` 一致 | `backend/app/api/guide.py`、`PROJECT_SUMMARY.md` | 无深析数据时仍可进入付费墙，减少流失 |
 | 2026-04-12 | **发布流程规则**：代码必须本地改并提交仓库；生产仅从仓库拉取后再构建发布；禁止服务器直接改业务代码；新增 `.cursor/rules/deployment-workflow.mdc`，`.cursorrules` 与 `DEPLOY.md` 对齐；`.gitignore` 改为仅跟踪 `.cursor/rules/*.mdc` 以便规则入库 | `.cursor/rules/deployment-workflow.mdc`、`.cursorrules`、`DEPLOY.md`、`.gitignore`、`PROJECT_SUMMARY.md` | 无直接营收；可追溯、可回滚，降低线上漂移与误覆盖风险 |
 | 2026-04-11 | **Content IR v1**：Markdown→结构化 JSON（`markdown_to_ir`）；`articles.body_ir`、`daily_guides.content_ir`、`reports.content_ir`（需执行 `scripts/migrations/add_content_ir_columns.sql`）；轮播 brief 带 `reading_minutes`/`subtitle`；API 返回 IR；前端 `IRRenderer` + 文章/深析/报告视图优先 IR；`scripts/backfill_content_ir.py` 回填旧数据 | `backend/app/services/ir_converter.py`、`backend/app/content_ir_types.py`、`backend/app/models/*`、`backend/app/api/content.py`、`guide.py`、`constellation.py`、`article_scraper.py`、`guide_generator.py`、`_report_helpers.py`、`frontend/src/types/contentIr.ts`、`frontend/src/components/IRRenderer.tsx`、`MarkdownReport.tsx`、`Article.tsx`、`Guide.tsx`、`ReportView.tsx`、`FortuneArticleCarousel.tsx`、`scripts/migrations/add_content_ir_columns.sql`、`scripts/backfill_content_ir.py`、`PROJECT_SUMMARY.md` | 长文可读性与组件化展示提升转化与停留；老数据需迁移+回填 |

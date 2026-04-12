@@ -129,6 +129,7 @@ export function FortuneArticleCarousel() {
     if (isError) return '接口异常 · 本地预览'
     if (data?.items?.length) {
       if (source === 'today') return '今日精选'
+      if (source === 'yesterday') return '昨日精选 · 今日内容生成中'
       if (source === 'fallback') return '近期精选'
       if (source === 'empty') return '暂无今日更新 · 预览内容'
       return '精选'

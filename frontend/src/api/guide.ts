@@ -8,6 +8,8 @@ export type GuidePreviewItem = {
   title: string
   preview: string
   transit_basis: string | null
+  /** 库表 guide_date，昨日回退时与「今日」日历不同 */
+  source_guide_date?: string | null
 }
 
 export type GuidePreviewResponse = {
@@ -28,6 +30,8 @@ export type GuideFullResponse = {
   transit_basis: string | null
   has_access: boolean
   content_ir?: Record<string, unknown> | null
+  /** 正文对应行的 guide_date；昨日回退时为昨日 */
+  content_row_date?: string | null
 }
 
 export type GuideAccessResponse = {

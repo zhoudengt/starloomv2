@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import logging
+from datetime import timedelta
 from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.deps import get_current_user, get_optional_user
+from app.services.daily_generation_kick import kick_guides_for_today_if_needed
 from app.models.daily_guide import DailyGuide, GuideCategory
 from app.models.order import Order, OrderStatus, ProductType
 from app.models.user import User
@@ -36,6 +38,8 @@ class GuidePreviewItem(BaseModel):
     title: str
     preview: str
     transit_basis: Optional[str] = None
+    # 实际文案对应的库表 guide_date（今日或昨日回退）
+    source_guide_date: Optional[str] = None
 
 
 class GuidePreviewResponse(BaseModel):
@@ -56,6 +60,8 @@ class GuideFullResponse(BaseModel):
     transit_basis: Optional[str] = None
     has_access: bool
     content_ir: Optional[dict[str, Any]] = None
+    # 正文/预览对应的库表 guide_date；无今日行而用昨日时为昨日日期
+    content_row_date: Optional[str] = None
 
 
 class GuideAccessResponse(BaseModel):
@@ -81,11 +87,13 @@ async def _check_guide_access(db: AsyncSession, user_id: int, guide_date_str: st
 
 @router.get("/preview", response_model=GuidePreviewResponse)
 async def guide_preview(
+    background_tasks: BackgroundTasks,
     sign: str = Query(..., min_length=1),
     db: AsyncSession = Depends(get_db),
     user: Optional[User] = Depends(get_optional_user),
 ):
     today = fortune_date_beijing()
+    yesterday = today - timedelta(days=1)
     date_str = today.isoformat()
     slug = sign.lower().strip()
 
@@ -99,30 +107,61 @@ async def guide_preview(
             DailyGuide.guide_date == today,
         ).order_by(DailyGuide.category)
     )
-    guides = result.scalars().all()
+    guides_today = result.scalars().all()
+    by_today = {g.category.value: g for g in guides_today}
 
     items: list[GuidePreviewItem] = []
-    for g in guides:
-        meta = _CATEGORY_META.get(g.category.value, {})
+    missing_any_today = False
+    for cat_key, meta in _CATEGORY_META.items():
+        g = by_today.get(cat_key)
+        if g:
+            items.append(GuidePreviewItem(
+                category=g.category.value,
+                label=meta.get("label", g.category.value),
+                icon=meta.get("icon", "star"),
+                title=g.title,
+                preview=g.preview,
+                transit_basis=g.transit_basis,
+                source_guide_date=date_str,
+            ))
+            continue
+        missing_any_today = True
+        try:
+            cat_enum = GuideCategory(cat_key)
+        except ValueError:
+            continue
+        res_y = await db.execute(
+            select(DailyGuide).where(
+                DailyGuide.sign == slug,
+                DailyGuide.category == cat_enum,
+                DailyGuide.guide_date == yesterday,
+            )
+        )
+        gy = res_y.scalar_one_or_none()
+        if gy:
+            m2 = _CATEGORY_META.get(gy.category.value, {})
+            items.append(GuidePreviewItem(
+                category=gy.category.value,
+                label=m2.get("label", meta["label"]),
+                icon=m2.get("icon", meta["icon"]),
+                title=gy.title,
+                preview=gy.preview,
+                transit_basis=gy.transit_basis,
+                source_guide_date=yesterday.isoformat(),
+            ))
+            continue
         items.append(GuidePreviewItem(
-            category=g.category.value,
-            label=meta.get("label", g.category.value),
-            icon=meta.get("icon", "star"),
-            title=g.title,
-            preview=g.preview,
-            transit_basis=g.transit_basis,
+            category=cat_key,
+            label=meta["label"],
+            icon=meta["icon"],
+            title=f"今日{meta['label']}",
+            preview="内容生成中，请稍后刷新…",
+            transit_basis=None,
+            source_guide_date=None,
         ))
 
-    for cat_key, meta in _CATEGORY_META.items():
-        if not any(i.category == cat_key for i in items):
-            items.append(GuidePreviewItem(
-                category=cat_key,
-                label=meta["label"],
-                icon=meta["icon"],
-                title=f"今日{meta['label']}",
-                preview="内容生成中，请稍后刷新…",
-                transit_basis=None,
-            ))
+    if missing_any_today:
+        background_tasks.add_task(kick_guides_for_today_if_needed)
 
     items.sort(key=lambda x: list(_CATEGORY_META.keys()).index(x.category))
 
@@ -147,12 +186,14 @@ async def guide_access_check(
 
 @router.get("/{category}", response_model=GuideFullResponse)
 async def guide_full(
+    background_tasks: BackgroundTasks,
     category: str,
     sign: str = Query(..., min_length=1),
     db: AsyncSession = Depends(get_db),
     user: Optional[User] = Depends(get_optional_user),
 ):
     today = fortune_date_beijing()
+    yesterday = today - timedelta(days=1)
     date_str = today.isoformat()
     slug = sign.lower().strip()
 
@@ -176,33 +217,49 @@ async def guide_full(
     )
     guide = result.scalar_one_or_none()
 
-    # 与 /preview 缺行占位一致：返回 200，避免详情页拿不到 fullData → 支付区无法渲染
-    if not guide:
+    def _response_from_row(g: DailyGuide, *, row_date: str) -> GuideFullResponse:
+        content = g.content if has_access else ""
+        content_ir: Optional[dict[str, Any]] = g.content_ir if has_access else None
         return GuideFullResponse(
             category=cat_enum.value,
             label=meta.get("label", cat_enum.value),
             sign=slug,
             date=date_str,
-            title=f"今日{meta['label']}",
-            content="",
-            preview="内容生成中，请稍后刷新…",
-            transit_basis=None,
+            title=g.title,
+            content=content,
+            preview=g.preview,
+            transit_basis=g.transit_basis,
             has_access=has_access,
-            content_ir=None,
+            content_ir=content_ir,
+            content_row_date=row_date,
         )
 
-    content = guide.content if has_access else ""
-    content_ir: Optional[dict[str, Any]] = guide.content_ir if has_access else None
+    if guide:
+        return _response_from_row(guide, row_date=today.isoformat())
+
+    background_tasks.add_task(kick_guides_for_today_if_needed)
+
+    res_y = await db.execute(
+        select(DailyGuide).where(
+            DailyGuide.sign == slug,
+            DailyGuide.category == cat_enum,
+            DailyGuide.guide_date == yesterday,
+        )
+    )
+    guide_y = res_y.scalar_one_or_none()
+    if guide_y:
+        return _response_from_row(guide_y, row_date=yesterday.isoformat())
 
     return GuideFullResponse(
         category=cat_enum.value,
         label=meta.get("label", cat_enum.value),
         sign=slug,
         date=date_str,
-        title=guide.title,
-        content=content,
-        preview=guide.preview,
-        transit_basis=guide.transit_basis,
+        title=f"今日{meta['label']}",
+        content="",
+        preview="内容生成中，请稍后刷新…",
+        transit_basis=None,
         has_access=has_access,
-        content_ir=content_ir,
+        content_ir=None,
+        content_row_date=None,
     )

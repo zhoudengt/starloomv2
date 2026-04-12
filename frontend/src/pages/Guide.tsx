@@ -80,6 +80,13 @@ export default function Guide() {
         <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
           {signCn} · {fullData?.date ?? previewData?.date ?? ''}
         </p>
+        {fullData?.content_row_date &&
+          fullData.date &&
+          fullData.content_row_date !== fullData.date && (
+            <p className="mt-1.5 text-[10px] leading-snug text-amber-200/90">
+              今日内容生成中，暂展示 {fullData.content_row_date} 的数据；完成后将自动切换为今日。
+            </p>
+          )}
         {fullData?.transit_basis && (
           <p className="mt-1.5 inline-block rounded-md bg-white/[0.06] px-2 py-0.5 text-[10px] text-[var(--color-text-muted)]">
             基于：{fullData.transit_basis}
