@@ -37,9 +37,9 @@ def _money_equal(a: Decimal, b: Decimal) -> bool:
     return a.quantize(_MONEY_QUANT) == b.quantize(_MONEY_QUANT)
 
 _PRODUCTION_PRICES: dict[str, Decimal] = {
-    "personality": Decimal("9.90"),
-    "compatibility": Decimal("19.90"),
-    "annual": Decimal("29.90"),
+    "personality": Decimal("0.10"),
+    "compatibility": Decimal("0.20"),
+    "annual": Decimal("0.30"),
     "chat": Decimal("9.90"),
     "personality_career": Decimal("6.90"),
     "personality_love": Decimal("6.90"),

@@ -1,7 +1,7 @@
 # StarLoom v2 项目摘要
 
 > 本文件是所有 AI 模型了解项目的**唯一入口**。任何代码改动后必须同步更新本文件。
-> 最后更新: 2026-04-12
+> 最后更新: 2026-04-13
 
 **多角色协作母版**（gstack 方法论适配）：`~/Desktop/StarLoom-Team-Collaboration-System.md`；Cursor 内见 `.cursor/rules/multi-role-review.mdc`、`opus-delegation.mdc`、`design-review.mdc`。变更日志需包含 **盈利影响** 列。
 
@@ -259,6 +259,7 @@ starloomv2/
 
 | 日期 | 改动 | 涉及文件（节选） | 盈利影响 |
 |------|------|------------------|----------|
+| 2026-04-13 | **生产定价**：性格 / 配对 / 年运 `_PRODUCTION_PRICES` 改为 ¥0.10 / ¥0.20 / ¥0.30，与本地测试档一致 | `backend/app/api/payment.py`、`PROJECT_SUMMARY.md` | 正式环境客单价大幅下降；适合内测/验证支付链路，上线前需再评估 |
 | 2026-04-12 | **轮播与深析无今日数据**：轮播 API 仅 `tags=carousel`，顺序 今日→昨日→窗口；无今日时后台触发 `generate_carousel_articles`（冷却）。深析 preview/full 无今日用昨日行，并触发 `generate_all_guides_for_date`（冷却）；响应含 `source_guide_date`/`content_row_date`；首页轮播角标 `yesterday`；Guide 页昨日提示 | `backend/app/api/content.py`、`guide.py`、`services/daily_generation_kick.py`、`frontend/.../FortuneArticleCarousel.tsx`、`Guide.tsx`、`api/content.ts`、`api/guide.ts`、`PROJECT_SUMMARY.md` | 无今日仍可看昨日，减少空窗；后台补拉今日提升转化与留存 |
 | 2026-04-12 | **每日星运深析支付拉不起**：根因是 `GET /guide/{category}` 在库中无当日记录时返回 **404**，前端 `Guide` 页无 `fullData` 只报错，不渲染「立即解锁」。现改为无记录时返回 **200** + 占位文案，与 `/preview` 一致 | `backend/app/api/guide.py`、`PROJECT_SUMMARY.md` | 无深析数据时仍可进入付费墙，减少流失 |
 | 2026-04-12 | **发布流程规则**：代码必须本地改并提交仓库；生产仅从仓库拉取后再构建发布；禁止服务器直接改业务代码；新增 `.cursor/rules/deployment-workflow.mdc`，`.cursorrules` 与 `DEPLOY.md` 对齐；`.gitignore` 改为仅跟踪 `.cursor/rules/*.mdc` 以便规则入库 | `.cursor/rules/deployment-workflow.mdc`、`.cursorrules`、`DEPLOY.md`、`.gitignore`、`PROJECT_SUMMARY.md` | 无直接营收；可追溯、可回滚，降低线上漂移与误覆盖风险 |
