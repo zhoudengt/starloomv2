@@ -149,7 +149,7 @@ export default function Chat() {
       </Link>
       <div className="relative overflow-hidden rounded-2xl border border-[var(--color-brand-gold)]/25 bg-gradient-to-br from-[#1a103c]/80 to-[#0a0b14] p-4">
         <img
-          src="/illustrations/chat-advisor.png"
+          src="/illustrations/chat-advisor.webp"
           alt=""
           className="pointer-events-none absolute -right-4 -top-4 h-32 w-32 object-contain opacity-90"
         />
@@ -186,7 +186,7 @@ export default function Chat() {
             return (
               <div key={i} className="flex justify-start gap-2">
                 <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--color-brand-gold)]/35 bg-[var(--color-surface-3)]/60">
-                  <img src="/illustrations/chat-advisor.png" alt="" className="h-full w-full object-cover" />
+                  <img src="/illustrations/chat-advisor.webp" alt="" className="h-full w-full object-cover" />
                 </div>
                 <TypingBubble />
               </div>
@@ -196,7 +196,7 @@ export default function Chat() {
             <div key={i} className={`flex gap-2 ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {m.role === 'assistant' && (
                 <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[var(--color-brand-gold)]/35 bg-[var(--color-surface-3)]/60">
-                  <img src="/illustrations/chat-advisor.png" alt="" className="h-full w-full object-cover" />
+                  <img src="/illustrations/chat-advisor.webp" alt="" className="h-full w-full object-cover" />
                 </div>
               )}
               <div

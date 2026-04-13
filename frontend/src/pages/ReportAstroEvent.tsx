@@ -105,7 +105,7 @@ export default function ReportAstroEvent() {
 
       <div className="relative mt-5 overflow-hidden rounded-2xl border border-cyan-500/20">
         <img
-          src="/illustrations/astro-event.png"
+          src="/illustrations/astro-event.webp"
           alt=""
           className="h-40 w-full object-cover"
           loading="lazy"

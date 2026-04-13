@@ -23,7 +23,7 @@ const ACCENT: Record<
     glow: 'hover:shadow-[0_0_28px_rgba(139,92,246,0.35)]',
     priceBg: 'from-[#8b5cf6] to-[#6366f1]',
     badgeBg: 'bg-[#8b5cf6]/25',
-    hero: '/illustrations/personality-hero.png',
+    hero: '/illustrations/personality-hero.webp',
   },
   compatibility: {
     stripe: 'from-[#ff2d78] via-[#f472b6] to-[#8b5cf6]',
@@ -32,7 +32,7 @@ const ACCENT: Record<
     glow: 'hover:shadow-[0_0_28px_rgba(255,45,120,0.35)]',
     priceBg: 'from-[#ff2d78] to-[#db2777]',
     badgeBg: 'bg-[#ff2d78]/22',
-    hero: '/illustrations/compatibility-hero.png',
+    hero: '/illustrations/compatibility-hero.webp',
   },
   annual: {
     stripe: 'from-[#00e5ff] via-[#22d3ee] to-[#ffd700]',
@@ -42,12 +42,12 @@ const ACCENT: Record<
     priceBg: 'from-[#06b6d4] to-[#0891b2]',
     badgeBg: 'bg-cyan-400/20',
     /** 右侧图在组件内按当前公历年换生肖，此处仅占位 */
-    hero: '/illustrations/annual-hero.png',
+    hero: '/illustrations/annual-hero.webp',
   },
 }
 
 function annualZodiacHeroSrc() {
-  return `/zodiac-animals/${chineseZodiacFromYear(new Date().getFullYear())}.png`
+  return `/zodiac-animals/${chineseZodiacFromYear(new Date().getFullYear())}.webp`
 }
 
 type Props = {

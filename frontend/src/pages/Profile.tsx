@@ -70,7 +70,7 @@ export default function Profile() {
 
       <section className="card-featured relative mt-8 overflow-hidden p-6 text-center">
         <img
-          src="/illustrations/profile-avatar.png"
+          src="/illustrations/profile-avatar.webp"
           alt=""
           className="pointer-events-none absolute -right-8 -top-10 h-40 w-40 object-contain opacity-50"
           aria-hidden
@@ -79,7 +79,7 @@ export default function Profile() {
         <div className="relative mx-auto flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-[var(--color-brand-gold)]/40 bg-[var(--color-surface-3)]/50 shadow-[var(--shadow-glow-gold)]">
           {sun ? (
             <img
-              src={`/zodiac/${sun.toLowerCase()}.png`}
+              src={`/zodiac/${sun.toLowerCase()}.webp`}
               alt=""
               className="h-full w-full object-cover"
             />

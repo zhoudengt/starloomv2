@@ -19,7 +19,7 @@ export default function FortuneHub() {
       <StarryBackground />
       <div className="flex items-center gap-4">
         <img
-          src="/illustrations/season-moon.png"
+          src="/illustrations/season-moon.webp"
           alt=""
           className="h-16 w-16 shrink-0 rounded-2xl object-cover opacity-95"
         />

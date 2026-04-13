@@ -13,9 +13,9 @@ import {
 } from '../utils/zodiacCalc'
 
 const HERO: Record<string, string> = {
-  personality: '/illustrations/personality-hero.png',
+  personality: '/illustrations/personality-hero.webp',
   compatibility: COMPATIBILITY_STREAM_BG,
-  astro_event: '/illustrations/astro-event.png',
+  astro_event: '/illustrations/astro-event.webp',
 }
 
 const STEPS = ['连接星象', '解析信息', 'AI 撰写', '即将完成'] as const
@@ -77,11 +77,11 @@ export default function ReportStreamingLoader({
   const hero =
     heroSrc ??
     (reportType === 'annual'
-      ? `/zodiac-animals/${chineseZodiacFromYear(new Date().getFullYear())}.png`
+      ? `/zodiac-animals/${chineseZodiacFromYear(new Date().getFullYear())}.webp`
       : HERO[reportType] ?? HERO.personality)
   const labelCn = signCn || (birthDate ? ZODIAC_CN[sunSignFromDate(birthDate)] : '星座')
   const pulseBgSrc =
-    reportType === 'compatibility' ? COMPATIBILITY_STREAM_BG : `/zodiac/${wheel.sun}.png`
+    reportType === 'compatibility' ? COMPATIBILITY_STREAM_BG : `/zodiac/${wheel.sun}.webp`
 
   if (!loading) return null
 

@@ -151,7 +151,7 @@ export default function AnnualReport() {
   const signCn = ZODIAC_CN[sunSignFromDate(birthDate)]
   const [yAllowed0, yAllowed1] = allowedAnnualYears()
   const zodiacAnimal = chineseZodiacFromYear(year)
-  const heroZodiacSrc = `/zodiac-animals/${zodiacAnimal}.png`
+  const heroZodiacSrc = `/zodiac-animals/${zodiacAnimal}.webp`
 
   return (
     <>

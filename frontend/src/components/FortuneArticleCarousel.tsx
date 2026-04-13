@@ -8,11 +8,11 @@ import { Icon } from './icons/Icon'
 const INTERVAL_MS = 4000
 
 const CATEGORY_COVER: Record<string, string> = {
-  career: '/illustrations/personality-hero.png',
-  wealth: '/illustrations/annual-hero.png',
-  relationship: '/illustrations/compatibility-home.png',
-  energy: '/illustrations/season-moon.png',
-  general: '/illustrations/astro-event.png',
+  career: '/illustrations/personality-hero.webp',
+  wealth: '/illustrations/annual-hero.webp',
+  relationship: '/illustrations/compatibility-home.webp',
+  energy: '/illustrations/season-moon.webp',
+  general: '/illustrations/astro-event.webp',
 }
 
 function CarouselCoverImage({

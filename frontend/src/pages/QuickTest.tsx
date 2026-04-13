@@ -282,7 +282,7 @@ export default function QuickTest() {
         <StarryBackground />
         <div className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-4 py-10">
           <img
-            src={`/zodiac/${sunSlug}.png`}
+            src={`/zodiac/${sunSlug}.webp`}
             alt=""
             className="pointer-events-none absolute inset-0 h-full w-full object-cover opacity-[0.35]"
             aria-hidden
@@ -401,7 +401,7 @@ export default function QuickTest() {
           {/* Hero */}
           <div className="relative h-[min(50vw,280px)] w-full overflow-hidden">
             <img
-              src={`/zodiac/${sunSlug}.png`}
+              src={`/zodiac/${sunSlug}.webp`}
               alt=""
               className="h-full w-full object-cover"
             />
@@ -425,7 +425,7 @@ export default function QuickTest() {
               <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
                 <WheelCardAnimatedBg />
                 <img
-                  src="/illustrations/section-astro-bg.png"
+                  src="/illustrations/section-astro-bg.webp"
                   alt=""
                   className="absolute inset-0 z-0 h-full w-full object-cover opacity-[0.32]"
                   aria-hidden
@@ -461,7 +461,7 @@ export default function QuickTest() {
               <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
                 <RadarCardAnimatedBg />
                 <img
-                  src="/illustrations/section-radar-bg.png"
+                  src="/illustrations/section-radar-bg.webp"
                   alt=""
                   className="absolute inset-0 z-0 h-full w-full object-cover opacity-[0.32]"
                   aria-hidden
@@ -565,7 +565,7 @@ export default function QuickTest() {
           <AnimatePresence mode="sync">
             <motion.img
               key={sunSlug}
-              src={`/zodiac/${sunSlug}.png`}
+              src={`/zodiac/${sunSlug}.webp`}
               alt=""
               className="absolute inset-0 h-full w-full object-cover"
               initial={{ opacity: 0 }}

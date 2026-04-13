@@ -300,7 +300,7 @@ export default function Compatibility() {
 
       <div className="relative mt-5 overflow-hidden rounded-2xl border border-[var(--color-brand-pink)]/25 shadow-[0_0_32px_rgba(236,72,153,0.12)]">
         <img
-          src="/illustrations/compatibility-hero.png"
+          src="/illustrations/compatibility-hero.webp"
           alt=""
           className="h-40 w-full object-cover"
           loading="lazy"

@@ -239,10 +239,10 @@ export default function ReportPersonality() {
         <img
           src={
             gender === 'female'
-              ? '/illustrations/personality-hero-female.png'
+              ? '/illustrations/personality-hero-female.webp'
               : gender === ''
-                ? '/illustrations/personality-hero-neutral.png'
-                : '/illustrations/personality-hero.png'
+                ? '/illustrations/personality-hero-neutral.webp'
+                : '/illustrations/personality-hero.webp'
           }
           alt=""
           className="h-40 w-full object-cover"

@@ -25,10 +25,10 @@ export default function BlurLock({
 }) {
   const heroSrc =
     gender === 'female'
-      ? '/illustrations/personality-hero-female.png'
+      ? '/illustrations/personality-hero-female.webp'
       : gender === 'male'
-        ? '/illustrations/personality-hero.png'
-        : '/illustrations/personality-hero-neutral.png'
+        ? '/illustrations/personality-hero.webp'
+        : '/illustrations/personality-hero-neutral.webp'
 
   return (
     <motion.div

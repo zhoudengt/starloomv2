@@ -76,7 +76,7 @@ export default function ReportGeneratingShell({
   const isCompatibility = reportType === 'compatibility'
   const sunSlug = birthDate ? sunSignFromDate(birthDate) : 'gemini'
   const signLabel = birthDate ? ZODIAC_CN[sunSignFromDate(birthDate)] : '星座'
-  const maskBgSrc = isCompatibility ? COMPATIBILITY_STREAM_BG : `/zodiac/${sunSlug}.png`
+  const maskBgSrc = isCompatibility ? COMPATIBILITY_STREAM_BG : `/zodiac/${sunSlug}.webp`
   const maskEyebrow = isCompatibility ? '双人合盘' : '太阳星座'
   const maskTitle = isCompatibility ? signCn || '双人视角' : signLabel
 

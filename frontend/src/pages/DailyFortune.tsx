@@ -381,7 +381,7 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
   }
 
   const imgSlug = (data.sign ?? signSlug).toLowerCase()
-  const zodiacImg = `/zodiac/${imgSlug}.png`
+  const zodiacImg = `/zodiac/${imgSlug}.webp`
 
   const overall = clampScore(data.overall_score)
   const scores = [
@@ -520,7 +520,7 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
             iconName="sparkle"
             borderClass="border-l-violet-400/50"
             decoClass={theme.deco}
-            sectionImage="/illustrations/sections/section-overview.png"
+            sectionImage="/illustrations/sections/section-overview.webp"
           />
           <DetailCard
             title="感情"
@@ -528,7 +528,7 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
             iconName="heart"
             borderClass="border-l-[var(--color-brand-pink)]/60"
             decoClass="bg-[#f472b6]/20"
-            sectionImage="/illustrations/sections/section-love.png"
+            sectionImage="/illustrations/sections/section-love.webp"
           />
           <DetailCard
             title="事业"
@@ -536,7 +536,7 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
             iconName="briefcase"
             borderClass="border-l-[var(--color-brand-gold)]/60"
             decoClass="bg-[#f0c75e]/15"
-            sectionImage="/illustrations/sections/section-career.png"
+            sectionImage="/illustrations/sections/section-career.webp"
           />
           <DetailCard
             title="财运"
@@ -544,7 +544,7 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
             iconName="coin"
             borderClass="border-l-[var(--color-brand-emerald)]/60"
             decoClass="bg-[#34d399]/15"
-            sectionImage="/illustrations/sections/section-finance.png"
+            sectionImage="/illustrations/sections/section-finance.webp"
           />
           <DetailCard
             title="健康"
@@ -552,7 +552,7 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
             iconName="leaf"
             borderClass="border-l-[var(--color-brand-sky)]/60"
             decoClass="bg-[#38bdf8]/15"
-            sectionImage="/illustrations/sections/section-health.png"
+            sectionImage="/illustrations/sections/section-health.webp"
           />
           <div className="card-featured rounded-xl p-4">
             <p className="font-serif text-[var(--color-brand-gold)]">今日建议</p>
@@ -615,7 +615,7 @@ export default function DailyFortune({ personalMode = false }: { personalMode?: 
             className="relative overflow-hidden rounded-2xl border border-[var(--color-brand-gold)]/25 shadow-[var(--shadow-glow-gold)]"
           >
             <img
-              src="/illustrations/fortune-share.png"
+              src="/illustrations/fortune-share.webp"
               alt=""
               className="absolute inset-0 h-full w-full object-cover opacity-55"
             />

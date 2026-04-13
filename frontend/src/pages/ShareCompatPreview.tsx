@@ -16,7 +16,7 @@ export default function ShareCompatPreview() {
       <StarryBackground />
       <div className="relative mt-4 min-h-[320px] overflow-hidden rounded-2xl border border-[var(--color-brand-pink)]/25 shadow-[0_0_40px_rgba(236,72,153,0.12)]">
         <img
-          src="/illustrations/compatibility-home.png"
+          src="/illustrations/compatibility-home.webp"
           alt=""
           className="absolute inset-0 h-full w-full object-cover"
         />

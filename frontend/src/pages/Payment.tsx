@@ -29,15 +29,15 @@ const FALLBACK_PRICES: Record<string, number> = {
 
 /** Optional hero art per product for checkout card */
 const PRODUCT_HERO: Partial<Record<string, string>> = {
-  personality: '/illustrations/personality-hero.png',
-  compatibility: '/illustrations/compatibility-hero.png',
-  chat: '/illustrations/chat-advisor.png',
-  personality_career: '/illustrations/personality-hero.png',
-  personality_love: '/illustrations/personality-hero.png',
-  personality_growth: '/illustrations/personality-hero.png',
-  astro_event: '/illustrations/astro-event.png',
-  season_pass: '/illustrations/season-moon.png',
-  daily_guide: '/illustrations/guide-career.png',
+  personality: '/illustrations/personality-hero.webp',
+  compatibility: '/illustrations/compatibility-hero.webp',
+  chat: '/illustrations/chat-advisor.webp',
+  personality_career: '/illustrations/personality-hero.webp',
+  personality_love: '/illustrations/personality-hero.webp',
+  personality_growth: '/illustrations/personality-hero.webp',
+  astro_event: '/illustrations/astro-event.webp',
+  season_pass: '/illustrations/season-moon.webp',
+  daily_guide: '/illustrations/guide-career.webp',
 }
 
 const PREVIEW_CHAPTERS: Record<string, string[]> = {
@@ -220,7 +220,7 @@ export default function Payment() {
   const productHeroSrc = useMemo(() => {
     const base = PRODUCT_HERO[product]
     if (product === 'annual') {
-      return `/zodiac-animals/${chineseZodiacFromYear(new Date().getFullYear())}.png`
+      return `/zodiac-animals/${chineseZodiacFromYear(new Date().getFullYear())}.webp`
     }
     return base
   }, [product])

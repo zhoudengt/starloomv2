@@ -23,7 +23,7 @@ export default function SeasonToday() {
       </Link>
       <div className="relative overflow-hidden rounded-2xl border border-[var(--color-brand-gold)]/20">
         <img
-          src="/illustrations/season-moon.png"
+          src="/illustrations/season-moon.webp"
           alt=""
           className="h-36 w-full object-cover"
         />

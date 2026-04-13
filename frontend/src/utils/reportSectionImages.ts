@@ -2,11 +2,11 @@
  * Template section images for Markdown reports — same assets for all users per report type.
  * Keys are matched with `sectionTitle.includes(key)`; longest keys are checked first.
  *
- * Gender variants: for 7 themes, paths `section-{theme}-female.png` / `section-{theme}-neutral.png`
- * are applied via `genderizeSectionImagePath` (male uses base `section-{theme}.png`).
+ * Gender variants: for 7 themes, paths `section-{theme}-female.webp` / `section-{theme}-neutral.webp`
+ * are applied via `genderizeSectionImagePath` (male uses base `section-{theme}.webp`).
  */
 
-const S = (name: string) => `/illustrations/sections/${name}`
+const S = (name: string) => `/illustrations/sections/${name.replace(/\.png$/, '.webp')}`
 
 /** Themes that have `-female` / `-neutral` asset variants (not love/social/astro). */
 const GENDERED_THEMES = new Set([
@@ -122,14 +122,16 @@ export function genderizeSectionImagePath(
 ): string | undefined {
   if (!src) return undefined
   const g = gender ?? 'male'
-  const m = src.match(/\/section-(overview|personality|career|finance|health|growth|tone)\.png(?:\?.*)?$/i)
+  const m = src.match(
+    /\/section-(overview|personality|career|finance|health|growth|tone)\.(?:png|webp)(?:\?.*)?$/i,
+  )
   if (!m) return src
   const theme = m[1].toLowerCase()
   if (!GENDERED_THEMES.has(theme)) return src
   const base = `/illustrations/sections/section-${theme}`
-  if (g === 'female') return `${base}-female.png`
-  if (g === '') return `${base}-neutral.png`
-  return `${base}.png`
+  if (g === 'female') return `${base}-female.webp`
+  if (g === '') return `${base}-neutral.webp`
+  return `${base}.webp`
 }
 
 /** Normalize loose strings from API / profile into ReportGender. */

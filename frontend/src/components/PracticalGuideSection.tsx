@@ -18,7 +18,7 @@ const CATEGORY_STYLES: Record<string, CategoryStyle> = {
   career: {
     key: 'career',
     icon: 'briefcase',
-    image: '/illustrations/guide-career.png',
+    image: '/illustrations/guide-career.webp',
     gradient: 'from-[#3b82f6]/20 to-[#1e3a5f]/30',
     borderColor: 'border-[#3b82f6]/25',
     glowColor: 'shadow-[0_0_20px_rgba(59,130,246,0.1)]',
@@ -26,7 +26,7 @@ const CATEGORY_STYLES: Record<string, CategoryStyle> = {
   wealth: {
     key: 'wealth',
     icon: 'coin',
-    image: '/illustrations/guide-wealth.png',
+    image: '/illustrations/guide-wealth.webp',
     gradient: 'from-[#f59e0b]/20 to-[#78350f]/30',
     borderColor: 'border-[#f59e0b]/25',
     glowColor: 'shadow-[0_0_20px_rgba(245,158,11,0.1)]',
@@ -34,7 +34,7 @@ const CATEGORY_STYLES: Record<string, CategoryStyle> = {
   relationship: {
     key: 'relationship',
     icon: 'users',
-    image: '/illustrations/guide-relationship.png',
+    image: '/illustrations/guide-relationship.webp',
     gradient: 'from-[#ec4899]/20 to-[#831843]/30',
     borderColor: 'border-[#ec4899]/25',
     glowColor: 'shadow-[0_0_20px_rgba(236,72,153,0.1)]',
@@ -42,7 +42,7 @@ const CATEGORY_STYLES: Record<string, CategoryStyle> = {
   energy: {
     key: 'energy',
     icon: 'moon',
-    image: '/illustrations/guide-energy.png',
+    image: '/illustrations/guide-energy.webp',
     gradient: 'from-[#a78bfa]/20 to-[#4c1d95]/30',
     borderColor: 'border-[#a78bfa]/25',
     glowColor: 'shadow-[0_0_20px_rgba(167,139,250,0.1)]',
@@ -73,9 +73,6 @@ function SignPicker({ onSelect }: { onSelect: (slug: ZodiacSlug) => void }) {
               alt=""
               className="h-7 w-7 object-contain"
               loading="lazy"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = `/zodiac/${slug}.png`
-              }}
             />
             <span className="text-[10px] text-[var(--color-text-secondary)]">
               {ZODIAC_CN[slug]}
