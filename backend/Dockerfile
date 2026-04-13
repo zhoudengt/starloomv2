@@ -15,11 +15,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ default
 
 COPY requirements.txt .
 
-# 与上方 apt 一致：国内构建时走阿里云 PyPI，避免官方 PyPI 极慢/卡死在 metadata 下载
-ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
-ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
+# 国内 PyPI；Broken pipe 多为下载中断，提高重试/超时；仍失败可换源构建：
+#   docker compose build --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple --build-arg PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
+ARG PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ARG PIP_TRUSTED_HOST=mirrors.aliyun.com
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
+ENV PIP_TRUSTED_HOST=${PIP_TRUSTED_HOST}
+ENV PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN pip install --timeout=300 --no-cache-dir -r requirements.txt gunicorn
+# BuildKit 缓存 wheel（不进入镜像层）；需 Docker 启用 BuildKit（compose v2 默认开启）
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -U pip setuptools wheel \
+    && pip install --timeout=600 --retries=20 -r requirements.txt gunicorn
 
 COPY app ./app
 

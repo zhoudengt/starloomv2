@@ -33,7 +33,12 @@ services:
       - starloom-network
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      # 可选：在仓库根 .env 中设置 PIP_INDEX_URL / PIP_TRUSTED_HOST 换 PyPI 镜像（阿里云不稳时改清华等）
+      args:
+        PIP_INDEX_URL: ${PIP_INDEX_URL:-https://mirrors.aliyun.com/pypi/simple/}
+        PIP_TRUSTED_HOST: ${PIP_TRUSTED_HOST:-mirrors.aliyun.com}
     container_name: starloom-backend
     env_file:
       - ./backend/.env

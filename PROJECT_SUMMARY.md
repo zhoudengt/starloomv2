@@ -260,6 +260,7 @@ starloomv2/
 
 | 日期 | 改动 | 涉及文件（节选） | 盈利影响 |
 |------|------|------------------|----------|
+| 2026-04-13 | **生产镜像 pip 抗断线**：`Broken pipe` 时提高 `--timeout`/`--retries`、先升级 pip；BuildKit 挂载 pip 缓存减少重试重复下载；`Dockerfile`/`compose` 支持换 PyPI 镜像（根 `.env` 设 `PIP_INDEX_URL` 等，见根 `.env.example`） | `backend/Dockerfile`、`docker-compose.prod.yml`、`.env.example`、`PROJECT_SUMMARY.md` | 降低构建失败率，减少因网络导致的上线阻塞 |
 | 2026-04-13 | **生产镜像 pip 国内源**：`Dockerfile` 设置 `PIP_INDEX_URL`/`PIP_TRUSTED_HOST` 指向阿里云 PyPI，避免 `docker compose --build` 在 `pip install` 阶段长时间卡在 PyPI 元数据/下载 | `backend/Dockerfile`、`PROJECT_SUMMARY.md` | 缩短发布构建时间，减少因网络导致的上线阻塞 |
 | 2026-04-13 | **轮播/详情封面可加载**：`cover_image` 为 `media/...` 时 API 返回 `/api/v1/content/ops-assets/{date}/...`；新增静态路由读 `backend/ops/out`；今日/昨日轮播按 `id` 升序（与 ops 入库顺序、抖音首推一致）；生产 compose 挂载 `ops/out`（**可读写**，供容器内 `unified_daily` 写入日包） | `backend/app/api/content.py`、`docker-compose.prod.yml`、`PROJECT_SUMMARY.md` | 首页轮播与文章头图正常显示，避免误触统一 fallback 图、减少跳出 |
 | 2026-04-13 | 轮播5篇+图文一致性改造：选题引擎保底5角度、轮播封面独立生成、抖音配图分离、清理废弃配置 | `backend/ops/` 多个文件、`backend/app/config.py` | 轮播内容与抖音一致，提升用户旅程连贯性和付费转化 |
