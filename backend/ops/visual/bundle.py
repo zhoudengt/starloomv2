@@ -15,6 +15,7 @@ BRAND = {
 @dataclass
 class MultimodalBundle:
     carousel: Dict[str, Any]
+    carousel_covers: List[Dict[str, Any]]
     video_spec: Dict[str, Any]
     media_prompts: Dict[str, Any]
     voice_txt: str
@@ -26,6 +27,25 @@ def _image_prompt(description: str) -> str:
         f"colors {BRAND['primary']} and {BRAND['accent']}, "
         f"{description}, no text, no watermark, no logo, high detail"
     )
+
+
+def build_carousel_cover_prompts(ranked: List[RankedAngle]) -> List[Dict[str, Any]]:
+    """为每个 ranked angle 生成一张封面图的 prompt。"""
+    covers: list[dict[str, Any]] = []
+    for r in ranked:
+        a = r.angle
+        sign_names = "、".join(a.sign_cn_involved) if a.sign_cn_involved else "星座"
+        covers.append(
+            {
+                "index": len(covers),
+                "sign_names": sign_names,
+                "image_prompt": _image_prompt(
+                    f"constellation theme for {sign_names}, "
+                    f"zodiac symbol prominent, elegant minimalist style"
+                ),
+            }
+        )
+    return covers
 
 
 def build_multimodal_bundle(
@@ -109,8 +129,11 @@ def build_multimodal_bundle(
         "分段：钩子 / 事实一句 / 场景两句 / CTA 一句\n"
     )
 
+    carousel_covers = build_carousel_cover_prompts(ranked)
+
     return MultimodalBundle(
         carousel={"pages": pages, "brand": BRAND},
+        carousel_covers=carousel_covers,
         video_spec={"15s": video_15, "60s": video_60},
         media_prompts=media_prompts,
         voice_txt=voice_txt,

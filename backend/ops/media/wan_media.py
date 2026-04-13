@@ -390,6 +390,7 @@ def run_wan_media_bundle(
     *,
     title_hint: str,
     video_enabled_override: Optional[bool] = None,
+    carousel_covers: list[dict] | None = None,
 ) -> Dict[str, Any]:
     ops = get_ops_settings()
     key = _api_key(settings, ops)
@@ -404,6 +405,7 @@ def run_wan_media_bundle(
         "image_model": ops.wan_image_model,
         "video_model": ops.wan_video_model,
         "images": [],
+        "carousel_cover_images": [],
         "video": None,
         "wan26_multimodal_http": _is_wan26_t2i_multimodal(ops.wan_image_model),
     }
@@ -420,7 +422,7 @@ def run_wan_media_bundle(
             prompt = p.get("image_prompt") or ""
             if not prompt.strip():
                 continue
-            dl_rel = f"media/images/page_{i+1:02d}.png"
+            dl_rel = f"media/images/douyin_{i+1:02d}.png"
             dest = out_dir / dl_rel
             overlay = (p.get("overlay_text") or "").strip()
             meta = _generate_one_image_with_retries(
@@ -457,6 +459,50 @@ def run_wan_media_bundle(
                 entry["ok"] = False
                 entry["error"] = meta.get("error", "generation failed")
             out["images"].append(entry)
+
+        covers_list = carousel_covers or []
+        for i, c in enumerate(covers_list):
+            if i > 0 and ops.wan_image_sleep_sec > 0:
+                time.sleep(ops.wan_image_sleep_sec)
+            prompt = c.get("image_prompt") or ""
+            if not prompt.strip():
+                continue
+            dl_rel = f"media/images/carousel_cover_{i+1:02d}.png"
+            dest = out_dir / dl_rel
+            meta = _generate_one_image_with_retries(
+                api_key=key,
+                model=ops.wan_image_model,
+                prompt=prompt,
+                size=ops.wan_image_size,
+                base_http=base_http,
+                workspace=ws,
+                retries=ops.wan_image_retries,
+            )
+            cent: Dict[str, Any] = {
+                "index": c.get("index", i),
+                "prompt_excerpt": prompt[:200],
+                "model": ops.wan_image_model,
+            }
+            if meta.get("ok") and meta.get("url"):
+                try:
+                    _download(str(meta["url"]), dest)
+                    jpg_path = _compress_and_overlay(
+                        dest,
+                        overlay_text="",
+                        max_kb=int(ops.wan_image_max_kb),
+                    )
+                    rel_jpg = jpg_path.relative_to(out_dir).as_posix()
+                    cent["remote_url"] = meta["url"]
+                    cent["local_file"] = rel_jpg
+                    cent["ok"] = True
+                except Exception as e:
+                    cent["ok"] = False
+                    cent["error"] = f"download failed: {e}"
+                    cent["remote_url"] = meta.get("url")
+            else:
+                cent["ok"] = False
+                cent["error"] = meta.get("error", "generation failed")
+            out["carousel_cover_images"].append(cent)
 
     if ve:
         vprompt = _video_prompt_from_bundle(video_spec, title_hint)

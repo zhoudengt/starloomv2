@@ -14,6 +14,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ default
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
+
+# 与上方 apt 一致：国内构建时走阿里云 PyPI，避免官方 PyPI 极慢/卡死在 metadata 下载
+ENV PIP_INDEX_URL=https://mirrors.aliyun.com/pypi/simple/
+ENV PIP_TRUSTED_HOST=mirrors.aliyun.com
+
 RUN pip install --timeout=300 --no-cache-dir -r requirements.txt gunicorn
 
 COPY app ./app

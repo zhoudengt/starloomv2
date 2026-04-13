@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 from datetime import date, timedelta
+from pathlib import Path
 from typing import Any, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +29,52 @@ from app.models.article import (
 logger = logging.getLogger(__name__)
 CAROUSEL_TAG = "carousel"
 router = APIRouter(prefix="/api/v1", tags=["content"])
+
+# ops 日包输出：backend/ops/out/YYYY-MM-DD/media/...
+_OPS_OUT_ROOT = Path(__file__).resolve().parents[2] / "ops" / "out"
+
+
+def _public_cover_image(cover: str, publish_date: Optional[date]) -> str:
+    """DB 存相对路径 media/images/... 时，转为浏览器可经 /api 拉取的 URL。"""
+    if not cover:
+        return cover
+    c = cover.strip()
+    if c.startswith("http://") or c.startswith("https://"):
+        return c
+    if c.startswith("/api/"):
+        return c
+    # 前端 public：/zodiac/*.webp、/illustrations/* 等
+    if c.startswith("/zodiac/") or c.startswith("/illustrations/") or c.startswith("/generated/"):
+        return c
+    if publish_date and c.startswith("media/"):
+        return f"/api/v1/content/ops-assets/{publish_date.isoformat()}/{c}"
+    return c
+
+
+@router.get("/content/ops-assets/{publish_date}/{file_path:path}")
+async def serve_ops_daily_asset(publish_date: str, file_path: str) -> FileResponse:
+    """提供 ops/out/日期/media/... 下的万相图，供首页轮播与文章详情封面加载。"""
+    import re
+
+    if not re.match(r"^\d{4}-\d{2}-\d{2}$", publish_date):
+        raise HTTPException(status_code=400, detail="invalid date")
+    if ".." in file_path or file_path.startswith(("/", "\\")):
+        raise HTTPException(status_code=400, detail="invalid path")
+
+    base = (_OPS_OUT_ROOT / publish_date).resolve()
+    if not base.is_dir():
+        raise HTTPException(status_code=404, detail="bundle not found")
+
+    target = (base / file_path).resolve()
+    try:
+        target.relative_to(base)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail="not found") from e
+    if not target.is_file():
+        raise HTTPException(status_code=404, detail="not found")
+
+    mt, _ = mimetypes.guess_type(str(target))
+    return FileResponse(target, media_type=mt or "application/octet-stream")
 
 
 # ---------------------------------------------------------------------------
@@ -103,7 +152,7 @@ def _article_brief_from_row(a: Article) -> ArticleBrief:
         id=a.id,
         slug=a.slug,
         title=a.title,
-        cover_image=a.cover_image,
+        cover_image=_public_cover_image(a.cover_image or "", a.publish_date),
         category=a.category.value,
         cta_product=a.cta_product,
         publish_date=a.publish_date,
@@ -165,7 +214,7 @@ async def list_articles(
         q = (
             select(Article)
             .where(cond_today)
-            .order_by(Article.id.desc())
+            .order_by(Article.id.asc())
             .offset(offset)
             .limit(limit)
         )
@@ -186,7 +235,7 @@ async def list_articles(
         q = (
             select(Article)
             .where(cond_yesterday)
-            .order_by(Article.id.desc())
+            .order_by(Article.id.asc())
             .offset(offset)
             .limit(limit)
         )
@@ -239,8 +288,7 @@ async def get_article(slug: str, db: AsyncSession = Depends(get_db)):
     )
     article = result.scalar_one_or_none()
     if not article:
-        from fastapi import HTTPException
-        raise HTTPException(404, "文章不存在")
+        raise HTTPException(status_code=404, detail="文章不存在")
 
     await db.execute(
         update(Article).where(Article.id == article.id).values(view_count=Article.view_count + 1)
@@ -319,8 +367,7 @@ async def get_article_share_link(
     )
     article = result.scalar_one_or_none()
     if not article:
-        from fastapi import HTTPException
-        raise HTTPException(404, "文章不存在")
+        raise HTTPException(status_code=404, detail="文章不存在")
 
     from app.config import get_settings
     settings = get_settings()
@@ -346,8 +393,7 @@ async def get_tip_share_link(
     result = await db.execute(select(DailyTip).where(DailyTip.id == tip_id))
     tip = result.scalar_one_or_none()
     if not tip:
-        from fastapi import HTTPException
-        raise HTTPException(404, "tips 不存在")
+        raise HTTPException(status_code=404, detail="tips 不存在")
 
     from app.config import get_settings
     settings = get_settings()

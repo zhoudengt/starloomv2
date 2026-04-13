@@ -1,20 +1,17 @@
-"""一体化抖音发布包：正文、配图清单、置顶链接、热点摘要、引流二维码、合规提示。"""
+"""一体化抖音发布包：正文、配图清单、置顶链接、热点摘要、合规提示。"""
 
 from __future__ import annotations
 
 import json
 from datetime import date
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Set, Tuple
 
 from app.utils.zodiac_calc import list_all_signs
 
-from ops.config import OpsSettings
 from ops.copy.generate import CopyBundle
 from ops.data_sources.registry import ExternalBundle
 from ops.ranking.rank import RankedAngle
-
-SPEC_CTA_CN = "免费查看今日运势，深度报告按需解锁"
 
 
 def _cn_slug_maps() -> Tuple[Dict[str, str], Set[str]]:
@@ -106,23 +103,12 @@ def _compliance_text() -> str:
             "【内容定位】本站为「性格分析与运势参考」类娱乐向解读，非封建迷信；"
             "请勿使用「算命」「占卜」等表述（与项目 calendar 禁忌一致）。",
             "",
-            "【引流说明】二维码与置顶链接仅跳转至本产品自有 H5；"
+            "【引流说明】置顶链接仅跳转至本产品自有 H5；"
             "请勿在素材中冒充政府机关、新闻媒体或平台官方。",
             "",
             "【责任】本文件为产品侧提示，不构成法律意见。",
         ]
     )
-
-
-def _write_qr_png(url: str, dest: Path) -> bool:
-    try:
-        import qrcode  # type: ignore
-    except ImportError:
-        return False
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    img = qrcode.make(url, border=2)
-    img.save(str(dest))
-    return True
 
 
 def write_douyin_kit(
@@ -135,11 +121,9 @@ def write_douyin_kit(
     ranked: List[RankedAngle],
     ext: ExternalBundle,
     weibo_api_configured: bool,
-    wan_summary: Optional[Dict[str, Any]],
-    ops: OpsSettings,
     preview: bool,
 ) -> Dict[str, Any]:
-    """写入 douyin_publish.md、pinned_comment、hotspot_report、合规说明、可选引流二维码，并合并 manifest。"""
+    """写入 douyin_publish.md、pinned_comment、hotspot_report、合规说明，并合并 manifest。"""
     full_url = full_traffic_url(fe, utm)
     slug = primary_zodiac_slug(ranked)
     hotspot = build_hotspot_report(ext, ranked, weibo_api_configured)
@@ -148,7 +132,6 @@ def write_douyin_kit(
         "traffic_url": full_url,
         "primary_zodiac_slug": slug,
         "hotspot_status": hotspot["status"],
-        "wan_carousel_mode": ops.wan_carousel_mode,
     }
 
     if preview:
@@ -163,17 +146,9 @@ def write_douyin_kit(
         encoding="utf-8",
     )
 
-    qr_rel = "media/traffic_qr.png"
-    qr_ok = False
-    if ops.traffic_qr_enabled:
-        qr_ok = _write_qr_png(full_url, out_dir / qr_rel)
-    kit_meta["traffic_qr_file"] = qr_rel if qr_ok else None
-
     primary = ranked[0].angle if ranked else None
     signs_cn = ", ".join(primary.sign_cn_involved) if primary else ""
     title_main = copy_bundle.titles[0] if copy_bundle.titles else f"{signs_cn}今日运势参考"
-
-    fe_display = fe.replace("https://", "").replace("http://", "").rstrip("/")
 
     body_short = (
         f"{signs_cn}今天需要注意什么？一条运势参考送给你。\n"
@@ -221,16 +196,13 @@ def write_douyin_kit(
 
     media_dir = out_dir / "media" / "images"
     if media_dir.exists():
-        carousel_imgs = sorted(media_dir.glob("page_*.jpg"))
+        carousel_imgs = sorted(media_dir.glob("douyin_*.jpg"))
         if not carousel_imgs:
-            carousel_imgs = sorted(media_dir.glob("page_*.png"))
+            carousel_imgs = sorted(media_dir.glob("douyin_*.png"))
         for img in carousel_imgs:
             md_parts.append(f"- `{img.relative_to(out_dir)}`")
     else:
         md_parts.append("- （图片未生成，运行 `python -m ops.cli daily` 生成）")
-
-    if qr_ok:
-        md_parts.extend(["", f"引流二维码：`{qr_rel}`"])
 
     md_parts.extend(
         [

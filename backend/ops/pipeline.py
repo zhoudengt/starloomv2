@@ -72,7 +72,7 @@ async def _write_carousel_articles(
             return 0
 
         count = 0
-        images = (wan_summary or {}).get("images") or []
+        cover_images = (wan_summary or {}).get("carousel_cover_images") or []
 
         for i, r in enumerate(ranked[:max_articles]):
             a = r.angle
@@ -82,8 +82,8 @@ async def _write_carousel_articles(
             body = await build_article_body(r, d.isoformat(), ep_line, fe)
 
             cover = ""
-            if i < len(images) and images[i].get("ok") and images[i].get("local_file"):
-                local_file = str(images[i]["local_file"])
+            if i < len(cover_images) and cover_images[i].get("ok") and cover_images[i].get("local_file"):
+                local_file = str(cover_images[i]["local_file"])
                 if out_path:
                     try:
                         cover = str(Path(local_file).relative_to(Path(out_path).parent.parent))
@@ -230,6 +230,7 @@ async def run_daily(
             multi.video_spec,
             title_hint=title_hint,
             video_enabled_override=video_override,
+            carousel_covers=multi.carousel_covers,
         )
         merge_wan_media_into_manifest(out_path, wan_summary)
 
@@ -244,8 +245,6 @@ async def run_daily(
             ranked=ranked,
             ext=ext,
             weibo_api_configured=bool((ops.weibo_access_token or "").strip()),
-            wan_summary=wan_summary,
-            ops=ops,
             preview=False,
         )
 
@@ -272,6 +271,9 @@ async def run_daily(
             "image_enabled": wan_summary.get("image_enabled"),
             "video_enabled": wan_summary.get("video_enabled"),
             "images_ok": sum(1 for x in wan_summary.get("images") or [] if x.get("ok")),
+            "carousel_cover_images_ok": sum(
+                1 for x in wan_summary.get("carousel_cover_images") or [] if x.get("ok")
+            ),
             "video_ok": (wan_summary.get("video") or {}).get("ok"),
         }
     if douyin_meta is not None:

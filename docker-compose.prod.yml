@@ -42,6 +42,9 @@ services:
       DB_PORT: 3306
       REDIS_HOST: starloom-redis
       REDIS_PORT: 6379
+    # 万相日包：统一日包定时任务写入 ops/out；API 读同一目录提供封面图（需可写，勿用 :ro）
+    volumes:
+      - ./backend/ops/out:/app/ops/out
     depends_on:
       mysql:
         condition: service_healthy

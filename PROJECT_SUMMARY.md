@@ -64,7 +64,7 @@ starloomv2/
 | `daily.py` | `GET /api/v1/daily/all`、`GET /api/v1/daily/personal`、`GET /api/v1/daily/{sign}` | 每日运势（含个人/全量） |
 | `reports.py` | `POST /api/v1/report/personality|compatibility|annual|personality-dlc|astro-event` | 付费报告 SSE 流式生成并落库 |
 | `season.py` | `GET /api/v1/season/today` | 当季/今日相关运势聚合接口 |
-| `content.py` | `GET /api/v1/articles`（`carousel=1` 仅 `tags=carousel`；优先今日 → 昨日 → 更早窗口；无今日时 BackgroundTasks 触发当日轮播生成）；轮播 brief 含 `subtitle`/`reading_minutes`；`GET /api/v1/articles/{slug}` 含 **body_ir**（**published + archived** 可读）、`GET /api/v1/tips/today`、分享链接… | H5 文章与每日 tips |
+| `content.py` | `GET /api/v1/articles`（`carousel=1` 仅 `tags=carousel`；优先今日 → 昨日 → 更早窗口；今日/昨日轮播按 `id` **升序**；无今日时 BackgroundTasks 触发当日轮播生成）；`cover_image` 为 ops 相对路径时返回 **`/api/v1/content/ops-assets/{publish_date}/media/...`**；`GET /api/v1/content/ops-assets/{date}/{path}` 读盘 `backend/ops/out`；轮播 brief 含 `subtitle`/`reading_minutes`；`GET /api/v1/articles/{slug}` 含 **body_ir**（**published + archived** 可读）、`GET /api/v1/tips/today`、分享链接… | H5 文章与每日 tips |
 | `guide.py` | `GET .../guide/{category}`：无今日行则用**昨日**行（`content_row_date`）；皆无则占位 **200**；缺今日时 BackgroundTasks 触发当日深析生成。`/preview` 按类回退昨日；`source_guide_date`；`/access` 同前 | 每日星运深析 |
 | `growth.py` | `/api/v1/growth/me`、`/cards`、`/group-buy`、`/assist/*`、`/share/compatibility` | 增长：积分、季卡、拼团、助力、配对分享 |
 | `payment.py` | `POST /api/v1/payment/create`、`POST .../notify`、`GET .../prices|pending`、`POST .../sync/{order_id}`、`GET .../status/{order_id}` | 虎皮椒下单、回调、询价与状态 |
@@ -260,6 +260,9 @@ starloomv2/
 
 | 日期 | 改动 | 涉及文件（节选） | 盈利影响 |
 |------|------|------------------|----------|
+| 2026-04-13 | **生产镜像 pip 国内源**：`Dockerfile` 设置 `PIP_INDEX_URL`/`PIP_TRUSTED_HOST` 指向阿里云 PyPI，避免 `docker compose --build` 在 `pip install` 阶段长时间卡在 PyPI 元数据/下载 | `backend/Dockerfile`、`PROJECT_SUMMARY.md` | 缩短发布构建时间，减少因网络导致的上线阻塞 |
+| 2026-04-13 | **轮播/详情封面可加载**：`cover_image` 为 `media/...` 时 API 返回 `/api/v1/content/ops-assets/{date}/...`；新增静态路由读 `backend/ops/out`；今日/昨日轮播按 `id` 升序（与 ops 入库顺序、抖音首推一致）；生产 compose 挂载 `ops/out`（**可读写**，供容器内 `unified_daily` 写入日包） | `backend/app/api/content.py`、`docker-compose.prod.yml`、`PROJECT_SUMMARY.md` | 首页轮播与文章头图正常显示，避免误触统一 fallback 图、减少跳出 |
+| 2026-04-13 | 轮播5篇+图文一致性改造：选题引擎保底5角度、轮播封面独立生成、抖音配图分离、清理废弃配置 | `backend/ops/` 多个文件、`backend/app/config.py` | 轮播内容与抖音一致，提升用户旅程连贯性和付费转化 |
 | 2026-04-13 | 新增 `CHEATSHEET.md` 操作速查手册（Git/发布/每日任务/本地与服务器重启/产出路径） | `CHEATSHEET.md`、`PROJECT_SUMMARY.md` | 降低运维门槛 |
 | 2026-04-13 | **抖音轮播图**：万相下载后转 JPEG（先 quality 80，仍超 `OPS_WAN_IMAGE_MAX_KB` 则 60）以满足约 500KB 上限；文生图 prompt 不再要求画中写字；第 3 张由 Pillow 在底部 1/3 叠加 `starloom.com.cn`（半透黑底白字）；`douyin_publish.md` 配图清单优先列 `page_*.jpg` | `backend/ops/visual/bundle.py`、`backend/ops/media/wan_media.py`、`backend/ops/config.py`、`backend/ops/publish/douyin_kit.py`、`backend/requirements.txt`、`backend/.env.example`、`PROJECT_SUMMARY.md` | 抖音上传合规、域名可读，减少因模糊 AI 字与超大图导致的限流或跳出 |
 | 2026-04-13 | **统一选题流水线改造**：抖音文案+H5轮播由同一 `run_daily` 产出（共享 `CandidateAngle` 选题）；废弃独立 `article_scraper`（NewsNow+RSS 改写）；`douyin_publish.md` 改为可直接复制的口语化短文案+配图；轮播长文自动写入 `articles.tags=carousel`；删除 `ops/h5_content/` 和 `scripts/run_carousel_articles.py`；定时任务统一为 `unified_daily_beijing` | `backend/ops/pipeline.py`、`publish/douyin_kit.py`、`copy/generate.py`、`visual/bundle.py`、`cli.py`、`export/writer.py`、`app/scheduler.py`、`app/config.py`、`app/api/content.py`、`app/services/daily_generation_kick.py`、`docs/douyin-operation.md`、`PROJECT_SUMMARY.md`；**删除**：`app/services/article_scraper.py`、`scripts/run_carousel_articles.py`、`ops/h5_content/*` | 抖音引流与H5落地页内容对齐，消除用户旅程断裂，提升付费转化 |

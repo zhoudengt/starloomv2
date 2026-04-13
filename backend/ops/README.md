@@ -28,7 +28,7 @@ cd backend
 | 文生图（carousel 每页 `image_prompt`） | 开 | `OPS_WAN_IMAGE_ENABLED`（默认 true） |
 | 文生视频（单条 clip） | **关**（省成本） | `OPS_WAN_VIDEO_ENABLED`（默认 false） |
 
-生成文件目录：`out/<date>/media/images/page_XX.png`，视频 `media/videos/clip.mp4`。结果摘要写在 `manifest.json` 的 `wan_media` 字段。
+生成文件目录：`out/<date>/media/images/douyin_XX.jpg`（抖音配图，来自 `carousel.pages`）、`carousel_cover_XX.jpg`（H5 轮播封面，每篇一条），视频 `media/videos/clip.mp4`。结果摘要写在 `manifest.json` 的 `wan_media` 字段（含 `images` 与 `carousel_cover_images`）。
 
 推荐模型：`OPS_WAN_IMAGE_MODEL=wan2.6-t2i`（走 **`multimodal-generation/generation`** HTTP，与旧版 `ImageSynthesis` 路径不同），`OPS_WAN_VIDEO_MODEL=wan2.6-t2v`。多张图之间默认间隔 `OPS_WAN_IMAGE_SLEEP_SEC=4` 以降低 429。
 
@@ -39,12 +39,10 @@ cd backend
 | 文件 | 说明 |
 |------|------|
 | `douyin_publish.md` | 标题备选、四段正文（含 spec 定价桥接）、配图/轮播表、置顶块 |
-| `pinned_comment.txt` | **生产 H5 + UTM** 完整链接（与二维码同源） |
+| `pinned_comment.txt` | **生产 H5 + UTM** 完整链接 |
 | `hotspot_report.json` | 今日热点 `none` / `weak` / `matched` 与摘要 |
 | `douyin_compliance.txt` | 平台规则与内容定位提示（非法律意见） |
-| `media/traffic_qr.png` | 可选：二维码编码上述完整 URL（需 `qrcode[pil]`） |
-
-`manifest.json` 会合并 `hotspot_report` 与 `douyin_kit` 字段。**发布抖音前**请将 **`FRONTEND_URL` / `OPS_FRONTEND_BASE_URL`** 设为真实线上 H5 域名（勿长期用 localhost）；二维码与置顶链接会一致。
+`manifest.json` 会合并 `hotspot_report` 与 `douyin_kit` 字段。**发布抖音前**请将 **`FRONTEND_URL` / `OPS_FRONTEND_BASE_URL`** 设为真实线上 H5 域名（勿长期用 localhost）；置顶链接与文案一致。
 
 ## 环境变量（前缀 `OPS_`）
 
@@ -55,15 +53,12 @@ cd backend
 | `OPS_WEIBO_ACCESS_TOKEN` | 微博开放平台 `access_token`，拉取 hourly trends |
 | `OPS_RSS_FEED_URLS` | 逗号分隔 RSS URL（权威媒体标题作叙事锚点） |
 | `OPS_FRONTEND_BASE_URL` | 与 `FRONTEND_URL` 一致时用于文案中的链接展示 |
-| `OPS_TOP_K_ANGLES` | 输出 Top-K 选题（默认 3） |
+| `OPS_TOP_K_ANGLES` | 输出 Top-K 选题（默认 5） |
 | `OPS_CALENDAR_YAML` | 覆盖默认节日/禁忌词配置文件路径 |
 | `OPS_WAN_IMAGE_ENABLED` | 是否文生图（默认 true） |
 | `OPS_WAN_VIDEO_ENABLED` | 是否文生视频（默认 false） |
 | `OPS_DASHSCOPE_API_KEY` | 可选，覆盖 `BAILIAN_API_KEY` 仅用于万相 |
 | `OPS_DASHSCOPE_WORKSPACE` | 可选业务空间 ID |
-| `OPS_WAN_CAROUSEL_MODE` | `asset_first`（首帧项目 `/zodiac/{slug}.webp` + 万相）或 `ai_only`（三帧均万相） |
-| `OPS_TRAFFIC_QR_ENABLED` | 是否生成 `media/traffic_qr.png`（默认 true） |
-
 完整列表见 [`../.env.example`](../.env.example)。
 
 节日与禁忌词默认见 [`ops/config/calendar.yaml`](config/calendar.yaml)。
@@ -72,7 +67,7 @@ cd backend
 
 1. 运行 `python -m ops.cli daily`（可由 cron 触发）。
 2. 打开 `out/<date>/manifest.json`：检查 `compliance`、`wan_media`、`hotspot_report`、`douyin_kit`、数据源、`angles`。
-3. 优先使用 `douyin_publish.md` + `pinned_comment.txt`（及 `traffic_qr.png`）发抖音；图片/视频已在 `media/` 下则可直接用；否则仍可用 `media_prompts.json` 手动生成。
+3. 优先使用 `douyin_publish.md` + `pinned_comment.txt` 发抖音；配图清单为 `media/images/douyin_*.jpg`；图片/视频已在 `media/` 下则可直接用；否则仍可用 `media_prompts.json` 手动生成。
 4. 使用文案中的 UTM 链接做复盘。
 
 ## 数据源说明

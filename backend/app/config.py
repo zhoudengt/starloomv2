@@ -74,7 +74,7 @@ class Settings(BaseSettings):
     unified_daily_enabled: bool = True
     unified_daily_hour_beijing: int = 0
     unified_daily_minute_beijing: int = 20
-    carousel_max_articles: int = Field(default=3, ge=1, le=12)
+    carousel_max_articles: int = Field(default=5, ge=1, le=12)
 
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 

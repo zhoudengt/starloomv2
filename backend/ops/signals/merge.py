@@ -129,4 +129,42 @@ def build_candidate_angles(
                 news_added += 1
                 break
 
+    # 如果候选不足 5 个，用当天运势评分最突出的星座补齐
+    MIN_CANDIDATES = 5
+    if len(candidates) < MIN_CANDIDATES:
+        existing_signs: set[str] = set()
+        for c in candidates:
+            existing_signs.update(c.signs_involved)
+
+        sign_scores: list[tuple[str, str, float]] = []
+        for slug, payload in daily.items():
+            if slug in existing_signs:
+                continue
+            raw = payload.get("overall_score", payload.get("score", 50))
+            try:
+                score = float(raw)
+            except (TypeError, ValueError):
+                score = 50.0
+            sign_cn = str(payload.get("sign_cn", slug))
+            sign_scores.append((slug, sign_cn, score))
+
+        sign_scores.sort(key=lambda x: x[2], reverse=True)
+
+        for slug, sign_cn, score in sign_scores:
+            if len(candidates) >= MIN_CANDIDATES:
+                break
+            candidates.append(
+                CandidateAngle(
+                    angle_id=f"daily_top_{slug}",
+                    kind="daily_topN",
+                    title_hint=f"{sign_cn}今日运势参考",
+                    signs_involved=[slug],
+                    sign_cn_involved=[sign_cn],
+                    score_hint=score / 10.0,
+                    engine_facts=[f"{sign_cn}今日综合运势 {int(round(score))} 分"],
+                    engine_ref={"type": "daily_scores", "score": score},
+                    hot_keywords_matched=[],
+                )
+            )
+
     return candidates
