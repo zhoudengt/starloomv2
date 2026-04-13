@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 import httpx
+from PIL import Image, ImageDraw, ImageFont
 
 from ops.config import OpsSettings, get_ops_settings
 from ops.visual.bundle import BRAND
@@ -25,6 +26,52 @@ def _download(url: str, dest: Path, timeout: float = 120.0) -> None:
         r = client.get(url)
         r.raise_for_status()
         dest.write_bytes(r.content)
+
+
+def _load_wan_overlay_font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    for path in (
+        "/System/Library/Fonts/Helvetica.ttc",
+        "/System/Library/Fonts/Supplemental/Arial.ttf",
+    ):
+        try:
+            return ImageFont.truetype(path, size=size, index=0)
+        except OSError:
+            continue
+    return ImageFont.load_default()
+
+
+def _compress_and_overlay(dest: Path, overlay_text: str = "", max_kb: int = 500) -> Path:
+    """Read downloaded image, optional bottom-third overlay, save JPEG ≤ max_kb (try q=80 then 60)."""
+    img = Image.open(dest).convert("RGBA")
+    w, h = img.size
+    text = (overlay_text or "").strip()
+    if text:
+        draw = ImageDraw.Draw(img)
+        font_size = max(22, min(int(w / 10), 120))
+        font = _load_wan_overlay_font(font_size)
+        bar_y0 = int(h * 2 / 3)
+        draw.rectangle([0, bar_y0, w, h], fill=(0, 0, 0, 200))
+        cx = w // 2
+        cy = bar_y0 + (h - bar_y0) // 2
+        draw.text((cx, cy), text, fill=(255, 255, 255, 255), font=font, anchor="mm")
+
+    rgb = Image.new("RGB", img.size, (0, 0, 0))
+    rgb.paste(img, mask=img.split()[3])
+
+    jpg_path = dest.with_suffix(".jpg")
+    max_bytes = max_kb * 1024
+
+    def _save_jpeg(quality: int) -> None:
+        rgb.save(jpg_path, "JPEG", quality=quality, optimize=True)
+
+    _save_jpeg(80)
+    if jpg_path.stat().st_size > max_bytes:
+        _save_jpeg(60)
+
+    if dest.resolve() != jpg_path.resolve() and dest.exists():
+        dest.unlink()
+
+    return jpg_path
 
 
 def _api_key(settings: Any, ops: OpsSettings) -> str:
@@ -373,8 +420,9 @@ def run_wan_media_bundle(
             prompt = p.get("image_prompt") or ""
             if not prompt.strip():
                 continue
-            rel = f"media/images/page_{i+1:02d}.png"
-            dest = out_dir / rel
+            dl_rel = f"media/images/page_{i+1:02d}.png"
+            dest = out_dir / dl_rel
+            overlay = (p.get("overlay_text") or "").strip()
             meta = _generate_one_image_with_retries(
                 api_key=key,
                 model=ops.wan_image_model,
@@ -392,8 +440,14 @@ def run_wan_media_bundle(
             if meta.get("ok") and meta.get("url"):
                 try:
                     _download(str(meta["url"]), dest)
+                    jpg_path = _compress_and_overlay(
+                        dest,
+                        overlay_text=overlay,
+                        max_kb=int(ops.wan_image_max_kb),
+                    )
+                    rel_jpg = jpg_path.relative_to(out_dir).as_posix()
                     entry["remote_url"] = meta["url"]
-                    entry["local_file"] = rel.replace("\\", "/")
+                    entry["local_file"] = rel_jpg
                     entry["ok"] = True
                 except Exception as e:
                     entry["ok"] = False

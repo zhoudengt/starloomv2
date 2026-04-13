@@ -20,11 +20,11 @@ class MultimodalBundle:
     voice_txt: str
 
 
-def _image_prompt(title: str, subtitle: str) -> str:
+def _image_prompt(description: str) -> str:
     return (
-        f"Vertical 9:16 mobile poster, {BRAND['bg']}, "
-        f"colors {BRAND['primary']} and {BRAND['accent']}, elegant Chinese typography, "
-        f"main title: {title}, sub: {subtitle}, constellation motif abstract, no text errors, high detail"
+        f"Vertical 9:16 mobile poster illustration, {BRAND['bg']}, "
+        f"colors {BRAND['primary']} and {BRAND['accent']}, "
+        f"{description}, no text, no watermark, no logo, high detail"
     )
 
 
@@ -32,32 +32,49 @@ def build_multimodal_bundle(
     d_iso: str,
     ranked: List[RankedAngle],
     utm: str,
+    frontend_url: str = "",
 ) -> MultimodalBundle:
     primary = ranked[0] if ranked else None
+    fe_display = frontend_url.replace("https://", "").replace("http://", "").rstrip("/") or "starloom.com.cn"
     pages: list[dict[str, Any]] = []
     if primary:
         a = primary.angle
+        sign_names = "、".join(a.sign_cn_involved) if a.sign_cn_involved else "星座"
+        friendly_title = f"{sign_names}今日运势参考"
+        p1_visual = (
+            f"constellation theme for {sign_names}, abstract zodiac glyphs and star patterns, "
+            "elegant mystical atmosphere, soft gold highlights on deep purple"
+        )
+        p2_visual = (
+            f"celestial chart and subtle planetary orbits, abstract starfield, calm premium mood "
+            f"evoking the date {d_iso}, minimal composition"
+        )
+        p3_visual = (
+            "minimal call-to-action end card, dark clean center with generous negative space, "
+            "subtle purple vignette and thin gold accent line, premium mobile app aesthetic"
+        )
         pages = [
             {
                 "page": 1,
-                "title": a.title_hint[:40],
-                "body": "性格分析与运势参考，娱乐向解读。",
+                "title": friendly_title[:40],
+                "body": f"今天{sign_names}需要注意什么？来看看运势参考。",
                 "colors": {"primary": BRAND["primary"], "accent": BRAND["accent"]},
-                "image_prompt": _image_prompt(a.title_hint[:32], "StarLoom · 运势参考"),
+                "image_prompt": _image_prompt(p1_visual),
             },
             {
                 "page": 2,
-                "title": "引擎摘录",
-                "body": "；".join(a.engine_facts[:3]),
+                "title": f"今日星象参考",
+                "body": f"{d_iso}｜性格分析与运势参考，帮你了解今天的节奏。",
                 "colors": {"primary": BRAND["primary"], "accent": BRAND["accent"]},
-                "image_prompt": _image_prompt("今日星象参考", d_iso),
+                "image_prompt": _image_prompt(p2_visual),
             },
             {
                 "page": 3,
-                "title": "行动引导",
-                "body": f"打开主页链接（{utm}）查看完整内容。",
+                "title": f"浏览器打开 {fe_display}",
+                "body": f"免费查看今日运势 · 性格报告按需解锁",
                 "colors": {"primary": BRAND["primary"], "accent": BRAND["accent"]},
-                "image_prompt": _image_prompt("立即查看", "StarLoom H5"),
+                "image_prompt": _image_prompt(p3_visual),
+                "overlay_text": "starloom.com.cn",
             },
         ]
 

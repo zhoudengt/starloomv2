@@ -70,15 +70,11 @@ class Settings(BaseSettings):
     guide_generation_minute_beijing: int = 30
     guide_llm_model: str = "qwen-plus"
 
-    # 首页轮播：热点聚合 + 抓取摘要/封面 + 百炼改写（写入 articles.tags=carousel）
-    carousel_generation_enabled: bool = True
-    carousel_max_articles: int = Field(default=5, ge=1, le=12)
-    carousel_generation_hour_beijing: int = 0
-    carousel_generation_minute_beijing: int = 20
-    newsnow_api_base: str = "https://newsnow.busiyi.world/api/s"
-    carousel_newsnow_source_ids: str = "weibo,zhihu,toutiao,douyin,thepaper"
-    carousel_rss_fallback_urls: str = "https://36kr.com/feed,https://www.ifanr.com/feed"
-    carousel_page_fetch_max_bytes: int = Field(default=800_000, ge=10_000, le=5_000_000)
+    # 统一日包（抖音物料 + 轮播入库）
+    unified_daily_enabled: bool = True
+    unified_daily_hour_beijing: int = 0
+    unified_daily_minute_beijing: int = 20
+    carousel_max_articles: int = Field(default=3, ge=1, le=12)
 
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 

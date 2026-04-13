@@ -14,10 +14,7 @@ from ops.copy.generate import CopyBundle
 from ops.data_sources.registry import ExternalBundle
 from ops.ranking.rank import RankedAngle
 
-# 与 docs/spec.md 付费档位一致（口播/正文桥接用）
-SPEC_PRICING_CN = (
-    "免费今日运势；深度报告：个人性格 9.9 元、配对分析 19.9 元、年度运势 29.9 元（以站内为准）。"
-)
+SPEC_CTA_CN = "免费查看今日运势，深度报告按需解锁"
 
 
 def _cn_slug_maps() -> Tuple[Dict[str, str], Set[str]]:
@@ -128,63 +125,6 @@ def _write_qr_png(url: str, dest: Path) -> bool:
     return True
 
 
-def _carousel_rows(
-    fe: str,
-    slug: str,
-    wan_summary: Optional[Dict[str, Any]],
-    mode: str,
-) -> List[Dict[str, str]]:
-    asset_url = f"{fe.rstrip('/')}/zodiac/{slug}.webp"
-    rows: List[Dict[str, str]] = []
-
-    images = (wan_summary or {}).get("images") or []
-
-    def ok_path(i: int) -> str:
-        if i >= len(images):
-            return ""
-        ent = images[i]
-        if ent.get("ok") and ent.get("local_file"):
-            return str(ent["local_file"])
-        return ""
-
-    mode_l = (mode or "asset_first").strip().lower()
-    if mode_l == "ai_only":
-        for i in range(3):
-            p = ok_path(i)
-            rows.append(
-                {
-                    "slot": str(i + 1),
-                    "kind": "万相文生图",
-                    "path_or_url": p or "（未生成或失败，可重跑 daily）",
-                }
-            )
-        return rows
-
-    # asset_first：首帧项目内 webp，后两帧对应万相第 2、3 页（carousel page_02 / page_03）
-    rows.append(
-        {
-            "slot": "1",
-            "kind": "项目内星座插画（与 H5 同源）",
-            "path_or_url": asset_url,
-        }
-    )
-    rows.append(
-        {
-            "slot": "2",
-            "kind": "万相氛围图（carousel 第 2 页）",
-            "path_or_url": ok_path(1) or "media/images/page_02.png（若已生成）",
-        }
-    )
-    rows.append(
-        {
-            "slot": "3",
-            "kind": "万相氛围图（carousel 第 3 页）",
-            "path_or_url": ok_path(2) or "media/images/page_03.png（若已生成）",
-        }
-    )
-    return rows
-
-
 def write_douyin_kit(
     out_dir: Path,
     *,
@@ -229,95 +169,73 @@ def write_douyin_kit(
         qr_ok = _write_qr_png(full_url, out_dir / qr_rel)
     kit_meta["traffic_qr_file"] = qr_rel if qr_ok else None
 
-    title_main = copy_bundle.titles[0] if copy_bundle.titles else "StarLoom 今日运营稿"
     primary = ranked[0].angle if ranked else None
     signs_cn = ", ".join(primary.sign_cn_involved) if primary else ""
-    ep_one = ""  # optional; pipeline could pass — keep template self-contained
-    if primary and primary.engine_facts:
-        ep_one = primary.engine_facts[0][:80]
+    title_main = copy_bundle.titles[0] if copy_bundle.titles else f"{signs_cn}今日运势参考"
 
-    body_short = "\n\n".join(
-        [
-            f"（1）钩子：{title_main[:80]}… 谁更稳、哪里容易踩坑？",
-            f"（2）天象与主题：今日主推星座参考｜{signs_cn}。"
-            + (f" 引擎摘录：{ep_one}…" if ep_one else "")
-            + " 结合场景谈「运势参考」，避免绝对化断言。",
-            f"（3）产品桥：在 StarLoom 选你的太阳星座 → {SPEC_PRICING_CN}",
-            f"（4）单一 CTA：打开链接（已带统计参数）→ {full_url}",
-        ]
+    fe_display = fe.replace("https://", "").replace("http://", "").rstrip("/")
+
+    body_short = (
+        f"{signs_cn}今天需要注意什么？一条运势参考送给你。\n"
+        f"今天的星象提醒：别急着做大决定，先观察一下节奏。\n"
+        f"想看完整版？看我主页简介找入口 👉\n"
     )
-
-    rows = _carousel_rows(fe, slug, wan_summary, ops.wan_carousel_mode)
-    table_lines = ["| 顺序 | 类型 | 路径或 URL |", "| --- | --- | --- |"]
-    for r in rows:
-        table_lines.append(f"| {r['slot']} | {r['kind']} | {r['path_or_url']} |")
-    if ops.traffic_qr_enabled:
-        table_lines.append(
-            f"| 引流 | 扫码进入 H5（与置顶同链） | `{qr_rel}` → `{full_url}` |"
-        )
 
     pinned = "\n".join(
         [
-            full_url,
-            "",
-            "置顶：今日运势与深度报告入口（性格分析 / 运势参考）",
+            f"✨ {signs_cn}今日运势参考",
+            "想看完整版？看我主页简介有入口",
+            "免费看今日运势，性格报告 / 配对解读按需解锁",
         ]
     )
     (out_dir / "pinned_comment.txt").write_text(pinned, encoding="utf-8")
 
+    hashtags = f"#星座 #{signs_cn.replace(', ', ' #')} #运势参考 #性格分析 #星座解读 #女生必看"
+
     md_parts = [
-        f"# 抖音发布一体化 · {d.isoformat()}",
+        f"# {d.isoformat()} 抖音发布",
         "",
-        "## 一、标题",
+        "## 标题（复制）",
         "",
-        f"- **主标题**：{title_main}",
+        f"```",
+        title_main,
+        f"```",
         "",
-        "### 备选",
+        "## 正文（复制）",
         "",
-        *(f"- {t}" for t in (copy_bundle.titles[1:] if len(copy_bundle.titles) > 1 else [])),
+        f"```",
+        body_short.strip(),
+        f"```",
         "",
-        "## 二、正文（短文案，可直接贴抖音）",
+        "## 话题标签（复制）",
         "",
-        body_short,
+        f"```",
+        hashtags,
+        f"```",
         "",
-        "## 三、配图 / 轮播（与项目资源一致）",
+        "## 配图",
         "",
-        f"- **万相轮播策略**：`{ops.wan_carousel_mode}`（`asset_first` = 首帧项目 webp + 万相；`ai_only` = 全部万相）",
-        "",
-        *table_lines,
-        "",
-        "## 四、引流",
-        "",
-        f"- **完整链接（UTM）**：{full_url}",
+        "上传以下图片到抖音：",
         "",
     ]
-    if qr_ok:
-        md_parts.extend(
-            [
-                f"- **二维码文件**：`{qr_rel}`（浏览器扫码进入上述链接）",
-                "",
-            ]
-        )
+
+    media_dir = out_dir / "media" / "images"
+    if media_dir.exists():
+        carousel_imgs = sorted(media_dir.glob("page_*.jpg"))
+        if not carousel_imgs:
+            carousel_imgs = sorted(media_dir.glob("page_*.png"))
+        for img in carousel_imgs:
+            md_parts.append(f"- `{img.relative_to(out_dir)}`")
     else:
-        md_parts.extend(
-            [
-                "- **二维码**：未生成（请安装依赖后重跑：`pip install 'qrcode[pil]'`）",
-                "",
-            ]
-        )
+        md_parts.append("- （图片未生成，运行 `python -m ops.cli daily` 生成）")
+
+    if qr_ok:
+        md_parts.extend(["", f"引流二维码：`{qr_rel}`"])
 
     md_parts.extend(
         [
-            "## 五、热点摘要",
             "",
-            f"- **状态**：`{hotspot['status']}`",
-            f"- **说明**：{hotspot['summary_cn']}",
-            "",
-            "## 六、合规提示",
-            "",
-            "详见同目录 `douyin_compliance.txt`。",
-            "",
-            "## 七、置顶评论（复制）",
+            "## 置顶评论（发布后复制到评论区）",
             "",
             "```",
             pinned,

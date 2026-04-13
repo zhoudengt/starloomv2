@@ -13,8 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
-from app.services.article_scraper import CAROUSEL_TAG
-from app.services.daily_generation_kick import kick_carousel_for_today_if_needed
+from app.services.daily_generation_kick import kick_unified_daily_if_needed
 from app.utils.beijing_date import fortune_date_beijing
 from app.models.article import (
     Article,
@@ -25,6 +24,7 @@ from app.models.article import (
 )
 
 logger = logging.getLogger(__name__)
+CAROUSEL_TAG = "carousel"
 router = APIRouter(prefix="/api/v1", tags=["content"])
 
 
@@ -156,7 +156,7 @@ async def list_articles(
     yesterday = today - timedelta(days=1)
     since = today - timedelta(days=settings.article_carousel_fallback_days)
 
-    # 首页轮播：仅展示 tags=carousel 的管线文章（与 article_scraper 写入一致）
+    # 首页轮播：仅展示 tags=carousel（由 ops.pipeline.run_daily 按日幂等写入）
     base_carousel = and_(base_pub, Article.tags == CAROUSEL_TAG)
 
     cond_today = and_(base_carousel, Article.publish_date == today)
@@ -178,7 +178,7 @@ async def list_articles(
         )
 
     # 无今日：异步补拉今日轮播（冷却内合并为一次）
-    background_tasks.add_task(kick_carousel_for_today_if_needed)
+    background_tasks.add_task(kick_unified_daily_if_needed)
 
     cond_yesterday = and_(base_carousel, Article.publish_date == yesterday)
     count_y = await db.scalar(select(func.count(Article.id)).where(cond_yesterday)) or 0

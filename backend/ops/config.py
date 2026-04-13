@@ -43,7 +43,7 @@ class OpsSettings(BaseSettings):
         default=5,
         ge=1,
         le=12,
-        description="H5 日更文章生成条数（与首页轮播圆点数量对齐）",
+        description="遗留字段（原 h5_content）；轮播入库条数由主应用 CAROUSEL_MAX_ARTICLES 控制",
     )
 
     # DashScope 万相（与 BAILIAN_API_KEY 同钥；可选单独覆盖）
@@ -65,6 +65,12 @@ class OpsSettings(BaseSettings):
     )
     wan_image_sleep_sec: float = Field(default=4.0, ge=0.0, description="多张图之间的间隔秒")
     wan_image_retries: int = Field(default=3, ge=1, le=8, description="单张图遇 429 等可重试次数")
+    wan_image_max_kb: int = Field(
+        default=500,
+        ge=100,
+        le=2000,
+        description="万相轮播图 JPEG 压缩目标上限 KB（抖音约 500KB）",
+    )
 
     # 抖音一体化发布包：首帧项目内 webp + 万相，或全部万相
     wan_carousel_mode: str = Field(
@@ -72,8 +78,8 @@ class OpsSettings(BaseSettings):
         description="asset_first：首帧 /zodiac/{slug}.webp + 万相；ai_only：三帧均万相",
     )
     traffic_qr_enabled: bool = Field(
-        default=True,
-        description="是否生成 media/traffic_qr.png（与置顶链接同源 UTM）",
+        default=False,
+        description="是否生成 media/traffic_qr.png（抖音图片含二维码有限流风险，默认关闭）",
     )
 
     @property

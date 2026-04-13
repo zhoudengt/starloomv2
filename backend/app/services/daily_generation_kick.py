@@ -7,31 +7,28 @@ import time
 
 logger = logging.getLogger(__name__)
 
-_carousel_last: float = 0.0
+_unified_last: float = 0.0
 _guide_last: float = 0.0
-_CAROUSEL_COOLDOWN_SEC = 90.0
+_UNIFIED_COOLDOWN_SEC = 120.0
 _GUIDE_COOLDOWN_SEC = 120.0
 
 
-async def kick_carousel_for_today_if_needed() -> None:
-    """今日尚无 carousel 短文时由读路径触发；冷却内忽略。"""
-    global _carousel_last
+async def kick_unified_daily_if_needed() -> None:
+    """今日尚无轮播文章时由读路径触发 run_daily；冷却内忽略。"""
+    global _unified_last
     now = time.monotonic()
-    if now - _carousel_last < _CAROUSEL_COOLDOWN_SEC:
+    if now - _unified_last < _UNIFIED_COOLDOWN_SEC:
         return
-    _carousel_last = now
-    from app.database import AsyncSessionLocal
-    from app.services.article_scraper import generate_carousel_articles
+    _unified_last = now
     from app.utils.beijing_date import fortune_date_beijing
 
     d = fortune_date_beijing()
     try:
-        async with AsyncSessionLocal() as db:
-            n = await generate_carousel_articles(db, d, force=False)
-            await db.commit()
-            logger.info("kick_carousel_for_today saved=%s date=%s", n, d)
+        from ops.pipeline import run_daily
+        await run_daily(d, skip_wan_media=True)
+        logger.info("kick_unified_daily ok date=%s", d)
     except Exception:
-        logger.exception("kick_carousel_for_today failed")
+        logger.exception("kick_unified_daily failed")
 
 
 async def kick_guides_for_today_if_needed() -> None:

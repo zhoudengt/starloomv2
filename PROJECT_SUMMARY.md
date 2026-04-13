@@ -13,14 +13,15 @@
 
 - **后端**: Python 3.11+、FastAPI、SQLAlchemy 2（async + aiomysql）、Redis、APScheduler、JWT
 - **前端**: React 19、TypeScript、Vite、Tailwind CSS 4、React Router 7、Zustand（persist）、TanStack Query、Axios、Framer Motion
-- **运维/内容**: `backend/ops/` 流水线（RSS/社媒数据源、文案合规、万相媒体、导出等，可选环境变量驱动）
+- **运维/内容**: `backend/ops/` 统一日包流水线（`run_daily`：选题引擎、抖音物料、轮播长文入库、文案合规、万相媒体、导出等，可选环境变量驱动；已无独立 NewsNow/RSS 抓取改写）
 
 ## 目录结构
 
 ```
 starloomv2/
-├── docs/                    # 产品与技术设计、Prompt 文档（spec、architecture、prompts/*.md）
+├── docs/                    # 产品与技术设计、Prompt、抖音运营（spec、architecture、prompts/*.md、douyin-operation.md）
 ├── PROJECT_SUMMARY.md       # 本摘要（AI/人类项目入口）
+├── CHEATSHEET.md            # 运维/发布/每日任务命令速查
 ├── README.md                # 仓库说明
 ├── backend/
 │   ├── app/
@@ -36,7 +37,7 @@ starloomv2/
 │   │   ├── middleware/      # 如全局限流
 │   │   ├── auth/            # JWT 签发校验
 │   │   └── utils/           # 流式 SSE、星座计算、时区等
-│   ├── ops/                 # 运营 CLI/流水线（与主 API 进程独立）
+│   ├── ops/                 # 运营 CLI/流水线（`run_daily` 一体产出抖音+轮播；无 `h5_content/` 子包）
 │   ├── requirements.txt
 │   └── .env.example         # 环境变量模板
 ├── frontend/
@@ -100,9 +101,10 @@ starloomv2/
 | `astro_service.py` / `astro_models.py` | 本命盘、合盘、年运摘要等计算 | 天文/时间库 |
 | `daily_fortune_core.py` / `public_daily_fortune.py` | 每日运势生成与批量预取 | LLM、DB、Redis |
 | `guide_generator.py` | 按日生成各星座 `DailyGuide` | LLM、DB |
-| `article_scraper.py` | 按北京日生成首页轮播：NewsNow 风格 API + RSS 回退 → 抓取 `og:image`/摘要 → 百炼改写入库（`articles.tags=carousel`） | httpx、百炼 `chat/completions`、DB |
 | `chat_context_service.py` | 聊天上下文装配 | DB/缓存 |
 | `growth_helpers.py` | 支付后奖励、季卡、卡片等副作用 | 各 growth 模型 |
+
+- **已移除**：`article_scraper.py`（原 NewsNow+RSS 改写轮播）— 轮播选题与长文现由 `backend/ops/pipeline.run_daily` 与抖音物料同源生成。
 
 ### Prompts (backend/app/prompts/)
 
@@ -119,9 +121,8 @@ starloomv2/
 ### 定时任务 (backend/app/scheduler.py)
 
 - **`daily_prefetch_beijing`**（可关 `DAILY_PREFETCH_ENABLED`）：北京时间 cron 触发，预生成当日 12 星座公开运势写入 DB/缓存。
-- **`carousel_articles_beijing`**（可关 `CAROUSEL_GENERATION_ENABLED`）：默认 0:20 北京时间，写入当日 `tags=carousel` 轮播短文（与深析四分类独立）。
 - **`guide_generation_beijing`**（可关 `guide_generation_enabled`）：北京时间 cron 触发，生成当日 `DailyGuide`。
-- **`h5_article_generation_beijing`**：与 guide 同日起算，晚 5 分钟触发，调用 `ops.pipeline.run_h5_content` 生成/发布 H5 文章类内容。
+- **`unified_daily_beijing`**（可关 `UNIFIED_DAILY_ENABLED`）：北京时间 cron 触发 **`ops.pipeline.run_daily`**（统一日包）。**一次任务**完成：① `ops/out/当日/` 抖音可复制物料（`douyin_publish.md`、配图等）；② 同一套 `CandidateAngle` / `rank_angles` 选题下的轮播长文写入 `articles`（`tags=carousel`，按北京日幂等）。**不再**使用独立的 `carousel_articles_beijing` / `h5_article_generation_beijing` 类任务。
 
 ## 前端架构
 
@@ -212,7 +213,7 @@ starloomv2/
 | `reports` | 生成报告全文与输入快照 |
 | `daily_fortunes` | 按日按星座缓存的公开运势 JSON |
 | `daily_guides` | 按日按星座按类别的深析正文 |
-| `articles` | 运营文章；首页轮播日更由 `article_scraper` 写入 `tags=carousel` |
+| `articles` | 运营文章；首页轮播日更由 `ops.pipeline.run_daily` 写入 `tags=carousel`（与 `unified_daily_*` 调度一致） |
 | `daily_tips` | 每日短 tip |
 | `user_growth_profiles` | 邀请码、余额、季卡截止时间 |
 | `user_zodiac_cards` | 用户收集的星座卡 |
@@ -228,9 +229,9 @@ starloomv2/
 - **LLM**: `LLM_PLATFORM`；Coze：`COZE_*`；百炼：`BAILIAN_API_KEY`、分场景 `BAILIAN_APP_ID_*`（daily/personality/compatibility/annual/chat/planner/profile_extractor）。
 - **支付**: `XUNHUPAY_APPID_*`、`XUNHUPAY_APPSECRET_*`、`XUNHUPAY_NOTIFY_URL`、`XUNHUPAY_API_BASE`。
 - **应用**: `APP_ENV`、`APP_SECRET_KEY`、`FRONTEND_URL`、`JWT_EXPIRE_DAYS`、`CORS_ORIGINS`。
-- **首页文章轮播**: `ARTICLE_CAROUSEL_FALLBACK_DAYS`（默认 7）：`GET /articles?carousel=1` 在无北京当日发文时回退最近 N 个自然日。
-- **轮播日更短文（主进程）**: `CAROUSEL_GENERATION_ENABLED`、`CAROUSEL_MAX_ARTICLES`、`CAROUSEL_GENERATION_HOUR_BEIJING`、`CAROUSEL_GENERATION_MINUTE_BEIJING`；可选 `NEWSNOW_API_BASE`、`CAROUSEL_NEWSNOW_SOURCE_IDS`（逗号）、`CAROUSEL_RSS_FALLBACK_URLS`（逗号，默认含 36氪/爱范儿）、`CAROUSEL_PAGE_FETCH_MAX_BYTES` — 定时拉热点 → 抓页面 meta → 百炼改写写入 `articles`（`tags=carousel`）；NewsNow 若被 CDN 拦截可依赖 RSS；一次性执行：`scripts/run_carousel_articles.py`（`--force` 覆盖当日）。
-- **深析与 ops**: `guide_generation_*`、`guide_llm_model`；`backend/.env.example` 中 `OPS_*` 为运营流水线可选项；`OPS_H5_MAX_ARTICLES_PER_DAY`（默认 5）与首页轮播容量对齐；H5 文章在 `OPS_WAN_IMAGE_ENABLED` 且具备 DashScope 密钥时为每篇生成封面并写入 `frontend/public/generated/articles/{date}/`（失败则降级静态分类图并打日志）。
+- **首页文章轮播**: `ARTICLE_CAROUSEL_FALLBACK_DAYS`（默认 7）：`GET /articles?carousel=1` 在无北京当日发文时回退最近 N 个自然日；`CAROUSEL_MAX_ARTICLES`（默认 3）限制 `run_daily` 单次入库条数。
+- **统一日包（主进程）**: `UNIFIED_DAILY_ENABLED`、`UNIFIED_DAILY_HOUR_BEIJING`、`UNIFIED_DAILY_MINUTE_BEIJING` — APScheduler 触发 `ops.pipeline.run_daily`，产出 `ops/out/` 抖音物料并将 ranked angles 写入 `articles`（`tags=carousel`，按北京日幂等）。手动/种子：`python -m ops.cli daily`、`scripts/seed_guides.py --articles`。
+- **深析与 ops**: `guide_generation_*`、`guide_llm_model`；`backend/.env.example` 中 `OPS_*` 为运营流水线可选项；万相在 `OPS_WAN_IMAGE_ENABLED` 且具备 DashScope 密钥时为轮播片生成封面并落入当日 `ops/out/` 物料目录（失败则降级静态星座图）。
 
 ## 当前开发状态
 
@@ -259,6 +260,12 @@ starloomv2/
 
 | 日期 | 改动 | 涉及文件（节选） | 盈利影响 |
 |------|------|------------------|----------|
+| 2026-04-13 | 新增 `CHEATSHEET.md` 操作速查手册（Git/发布/每日任务/本地与服务器重启/产出路径） | `CHEATSHEET.md`、`PROJECT_SUMMARY.md` | 降低运维门槛 |
+| 2026-04-13 | **抖音轮播图**：万相下载后转 JPEG（先 quality 80，仍超 `OPS_WAN_IMAGE_MAX_KB` 则 60）以满足约 500KB 上限；文生图 prompt 不再要求画中写字；第 3 张由 Pillow 在底部 1/3 叠加 `starloom.com.cn`（半透黑底白字）；`douyin_publish.md` 配图清单优先列 `page_*.jpg` | `backend/ops/visual/bundle.py`、`backend/ops/media/wan_media.py`、`backend/ops/config.py`、`backend/ops/publish/douyin_kit.py`、`backend/requirements.txt`、`backend/.env.example`、`PROJECT_SUMMARY.md` | 抖音上传合规、域名可读，减少因模糊 AI 字与超大图导致的限流或跳出 |
+| 2026-04-13 | **统一选题流水线改造**：抖音文案+H5轮播由同一 `run_daily` 产出（共享 `CandidateAngle` 选题）；废弃独立 `article_scraper`（NewsNow+RSS 改写）；`douyin_publish.md` 改为可直接复制的口语化短文案+配图；轮播长文自动写入 `articles.tags=carousel`；删除 `ops/h5_content/` 和 `scripts/run_carousel_articles.py`；定时任务统一为 `unified_daily_beijing` | `backend/ops/pipeline.py`、`publish/douyin_kit.py`、`copy/generate.py`、`visual/bundle.py`、`cli.py`、`export/writer.py`、`app/scheduler.py`、`app/config.py`、`app/api/content.py`、`app/services/daily_generation_kick.py`、`docs/douyin-operation.md`、`PROJECT_SUMMARY.md`；**删除**：`app/services/article_scraper.py`、`scripts/run_carousel_articles.py`、`ops/h5_content/*` | 抖音引流与H5落地页内容对齐，消除用户旅程断裂，提升付费转化 |
+| 2026-04-13 | 重构后收尾：`main.py` 已用 `setup_unified_daily_schedule`；全库无 `article_scraper`/`run_h5_content`/`setup_carousel_schedule` 代码引用；`.env.example` 与 `PROJECT_SUMMARY` 对齐统一日包与 `CAROUSEL_MAX_ARTICLES`；`pipeline._write_carousel_articles` 使用 `Settings.carousel_max_articles` | `backend/app/api/content.py`、`backend/ops/pipeline.py`、`backend/ops/config.py`、`backend/.env.example`、`scripts/seed_guides.py`、`PROJECT_SUMMARY.md` | 无直接变化；消除过时配置与文档误导，降低运维接错环境变量风险 |
+| 2026-04-13 | 抖音发布稿 `douyin_publish.md` 改为可复制短标题/正文/话题/配图清单；`run_daily` 写入轮播文章（`tags=carousel`，幂等按日）；移除 `run_h5_content`；`seed_guides.py --articles` 改调 `run_daily` | `backend/ops/publish/douyin_kit.py`、`backend/ops/pipeline.py`、`scripts/seed_guides.py`、`PROJECT_SUMMARY.md` | 运营复制效率↑；轮播与 ops 日包一体，利于首页内容与日更一致 |
+| 2026-04-13 | 重写抖音运营手册：对齐 backend/ops 每日产出，账号设置直接给定，每日操作5步复制粘贴；新增头像+背景图 | `docs/douyin-operation.md`、`assets/douyin-avatar.png`、`assets/douyin-banner.png`、`PROJECT_SUMMARY.md` | 抖音运营零门槛启动，直接支撑引流获客 |
 | 2026-04-13 | **图片全量转 WebP**：`scripts/optimize-images.sh` 批量转换（113MB→10MB, -91%）；前端所有静态图路径从 `.png` 改为 `.webp` | `frontend/src/utils/reportSectionImages.ts`、`frontend/src/constants/reportStreamVisual.ts`、`frontend/src/data/zodiacArticles.ts`、`frontend/src/pages/*`（ReportAstroEvent、SeasonToday、FortuneHub、ShareCompatPreview、Compatibility、Chat、Profile、DailyFortune、QuickTest、ReportPersonality、AnnualReport、Payment）、`frontend/src/components/*`（BlurLock、ReportGeneratingShell、PayButton、FortuneArticleCarousel、PracticalGuideSection、ReportStreamingLoader）、`scripts/optimize-images.sh`、`PROJECT_SUMMARY.md` | 首屏图片加载从 30+ 秒降到 2-3 秒，抖音引流落地页体验大幅改善，减少首屏流失 |
 | 2026-04-13 | **生产定价**：性格 / 配对 / 年运 `_PRODUCTION_PRICES` 改为 ¥0.10 / ¥0.20 / ¥0.30，与本地测试档一致 | `backend/app/api/payment.py`、`PROJECT_SUMMARY.md` | 正式环境客单价大幅下降；适合内测/验证支付链路，上线前需再评估 |
 | 2026-04-12 | **轮播与深析无今日数据**：轮播 API 仅 `tags=carousel`，顺序 今日→昨日→窗口；无今日时后台触发 `generate_carousel_articles`（冷却）。深析 preview/full 无今日用昨日行，并触发 `generate_all_guides_for_date`（冷却）；响应含 `source_guide_date`/`content_row_date`；首页轮播角标 `yesterday`；Guide 页昨日提示 | `backend/app/api/content.py`、`guide.py`、`services/daily_generation_kick.py`、`frontend/.../FortuneArticleCarousel.tsx`、`Guide.tsx`、`api/content.ts`、`api/guide.ts`、`PROJECT_SUMMARY.md` | 无今日仍可看昨日，减少空窗；后台补拉今日提升转化与留存 |

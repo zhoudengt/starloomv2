@@ -37,10 +37,11 @@ def build_copy_bundle(
 
     if primary:
         a = primary.angle
+        sign_names = "、".join(a.sign_cn_involved) if a.sign_cn_involved else "星座"
         titles = [
-            a.title_hint,
-            f"今日星象参考｜{', '.join(a.sign_cn_involved)}",
-            f"性格与运势参考｜{a.kind}",
+            f"{sign_names}今日运势参考",
+            f"今天{sign_names}需要注意什么？",
+            f"{sign_names}：今日状态一览",
         ]
         body_parts.append(f"【天象事实】{ephemeris_line}")
         body_parts.append("")
@@ -73,6 +74,61 @@ def build_copy_bundle(
         titles=titles,
         comment_cta=f"置顶：今日完整运势与报告入口 {frontend_url}",
         share_lines=share_lines,
+    )
+
+
+async def build_article_body(
+    ranked_angle: RankedAngle,
+    d_iso: str,
+    ephemeris_line: str,
+    frontend_url: str,
+) -> str:
+    """为 ranked angle 生成 800-1500 字长文（用于 H5 轮播文章正文）。"""
+    ops = get_ops_settings()
+    settings = get_settings()
+    a = ranked_angle.angle
+    sign_names = "、".join(a.sign_cn_involved) if a.sign_cn_involved else "星座"
+    facts = "\n".join(f"- {f}" for f in a.engine_facts) if a.engine_facts else "暂无详细天象数据"
+
+    prompt = (
+        f"你是 StarLoom 星座内容编辑。请根据以下天象事实，为「{sign_names}」写一篇 800-1500 字的今日运势参考长文。\n\n"
+        f"日期：{d_iso}\n"
+        f"天象概览：{ephemeris_line}\n"
+        f"引擎事实：\n{facts}\n\n"
+        "要求：\n"
+        "1. 用 Markdown 格式，包含 2-3 个小节（如事业/学业、感情/人际、情绪/健康）\n"
+        "2. 语气亲切自然，像朋友聊天，不要学术化\n"
+        "3. 每个小节给出具体可操作的建议\n"
+        "4. 禁止使用「算命」「占卜」等词，只用「运势参考」「性格分析」\n"
+        "5. 结尾引导读者到 StarLoom 查看更详细的个人报告\n"
+        "6. 不要编造具体行星度数，天象事实以上面提供的为准\n"
+    )
+
+    if ops.llm_enabled and (ops.bailian_app_id or "").strip() and settings.bailian_api_key:
+        try:
+            svc = BailianApplicationService(settings, ops.bailian_app_id.strip())
+            body = await svc.generate(prompt)
+            body = strip_banned(body, [])
+            if len(body) >= 200:
+                return body.strip()
+        except Exception:
+            pass
+
+    return (
+        f"## {sign_names}今日运势参考\n\n"
+        f"**日期**：{d_iso}\n\n"
+        f"### 天象概览\n\n{ephemeris_line}\n\n"
+        "### 事业与学业\n\n"
+        f"今天{sign_names}在工作和学习方面需要保持专注。"
+        "建议把精力集中在最重要的事情上，不要分散注意力。"
+        "如果遇到需要沟通的场合，先理清思路再开口。\n\n"
+        "### 感情与人际\n\n"
+        "人际关系方面，今天适合倾听多于表达。"
+        "给身边的人多一点耐心，关系会更顺畅。\n\n"
+        "### 情绪与能量\n\n"
+        "注意调节自己的节奏，累了就休息一下。"
+        "运势参考只是提醒，真正的好运来自你每一天的用心经营。\n\n"
+        f"---\n\n想看更个性化的分析？来 StarLoom 生成你的专属报告。\n"
     )
 
 

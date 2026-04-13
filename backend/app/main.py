@@ -12,9 +12,9 @@ from app.database import init_db
 from app.middleware.rate_limit import RateLimitMiddleware
 from app.scheduler import (
     scheduler,
-    setup_carousel_schedule,
     setup_daily_prefetch_schedule,
     setup_guide_generation_schedule,
+    setup_unified_daily_schedule,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -44,7 +44,7 @@ async def lifespan(app: FastAPI):
     _log_payment_config_warnings()
     setup_daily_prefetch_schedule()
     setup_guide_generation_schedule()
-    setup_carousel_schedule()
+    setup_unified_daily_schedule()
     scheduler.start()
     yield
     scheduler.shutdown(wait=False)

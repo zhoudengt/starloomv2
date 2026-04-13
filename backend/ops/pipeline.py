@@ -4,24 +4,22 @@ from __future__ import annotations
 
 import asyncio
 from datetime import date
+from pathlib import Path
 from typing import Any, Dict, List
 
 from app.config import get_settings
 from app.utils.beijing_date import fortune_date_beijing
 
 from ops.config import get_ops_settings
-from ops.copy.generate import build_copy_bundle, maybe_enrich_with_llm
+from ops.copy.generate import build_article_body, build_copy_bundle, maybe_enrich_with_llm
 from ops.data_sources.registry import fetch_all_external
 from ops.export.writer import write_day_bundle
 from ops.publish.douyin_kit import write_douyin_kit
-from ops.ranking.rank import rank_angles
+from ops.ranking.rank import RankedAngle, rank_angles
 from ops.signals.astro_slice import compute_twelve_transit_slice, ephemeris_one_liner
 from ops.signals.daily_fortune import fetch_twelve_daily
 from ops.signals.merge import CandidateAngle, build_candidate_angles
 from ops.visual.bundle import build_multimodal_bundle
-from ops.h5_content.article_generator import generate_articles
-from ops.h5_content.publisher import run_h5_publish
-from ops.h5_content.tip_generator import generate_daily_tips
 from ops.media.wan_media import merge_wan_media_into_manifest, run_wan_media_bundle
 
 
@@ -43,6 +41,86 @@ def _hot_keyword_pool(ext) -> List[str]:
         seen.add(k)
         out.append(k)
     return out[:120]
+
+
+async def _write_carousel_articles(
+    d: date,
+    ranked: List[RankedAngle],
+    ep_line: str,
+    fe: str,
+    out_path,
+    wan_summary: Dict[str, Any] | None,
+) -> int:
+    """Write ranked angles as carousel articles to DB (tags=carousel)."""
+    from sqlalchemy import select, func
+
+    from app.config import get_settings
+    from app.database import AsyncSessionLocal
+    from app.models.article import Article, ArticleCategory, ArticleStatus
+
+    CAROUSEL_TAG = "carousel"
+    max_articles = get_settings().carousel_max_articles
+
+    async with AsyncSessionLocal() as db:
+        existing = await db.scalar(
+            select(func.count(Article.id)).where(
+                Article.tags == CAROUSEL_TAG,
+                Article.publish_date == d,
+            )
+        )
+        if existing and existing > 0:
+            return 0
+
+        count = 0
+        images = (wan_summary or {}).get("images") or []
+
+        for i, r in enumerate(ranked[:max_articles]):
+            a = r.angle
+            sign_names = "、".join(a.sign_cn_involved) if a.sign_cn_involved else "星座"
+            title = f"{sign_names}今日运势参考"
+
+            body = await build_article_body(r, d.isoformat(), ep_line, fe)
+
+            cover = ""
+            if i < len(images) and images[i].get("ok") and images[i].get("local_file"):
+                local_file = str(images[i]["local_file"])
+                if out_path:
+                    try:
+                        cover = str(Path(local_file).relative_to(Path(out_path).parent.parent))
+                    except ValueError:
+                        cover = local_file
+            if not cover:
+                slug = (a.signs_involved[0] if a.signs_involved else "aries").lower()
+                cover = f"/zodiac/{slug}.webp"
+
+            body_ir = None
+            try:
+                from app.services.ir_converter import markdown_to_ir
+                body_ir = markdown_to_ir(body)
+            except Exception:
+                pass
+
+            slug = f"daily-{d.isoformat()}-{a.angle_id[:30]}"
+
+            article = Article(
+                slug=slug,
+                title=title,
+                cover_image=cover,
+                body=body,
+                body_ir=body_ir,
+                category=ArticleCategory.general,
+                tags=CAROUSEL_TAG,
+                cta_product="free_daily",
+                status=ArticleStatus.published,
+                source_keywords=f"ops_daily|{a.kind}|{','.join(a.sign_cn_involved)}",
+                publish_date=d,
+            )
+            db.add(article)
+            count += 1
+
+        if count > 0:
+            await db.commit()
+        return count
 
 
 async def run_daily(
@@ -100,7 +178,7 @@ async def run_daily(
     copy_md_final = await maybe_enrich_with_llm(copy_bundle, ranked)
     copy_bundle.copy_md = copy_md_final
 
-    multi = build_multimodal_bundle(d.isoformat(), ranked, utm)
+    multi = build_multimodal_bundle(d.isoformat(), ranked, utm, frontend_url=fe)
 
     manifest: Dict[str, Any] = {
         "date": d.isoformat(),
@@ -171,12 +249,23 @@ async def run_daily(
             preview=False,
         )
 
+    carousel_written = 0
+    if not preview:
+        try:
+            carousel_written = await _write_carousel_articles(
+                d, ranked, ep_line, fe, out_path, wan_summary,
+            )
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("carousel DB write failed for %s", d.isoformat())
+
     result: Dict[str, Any] = {
         "date": d.isoformat(),
         "out_dir": str(out_path) if not preview else "(preview)",
         "angles": len(ranked),
         "preview": preview,
         "skip_wan_media": skip_wan_media,
+        "carousel_articles_written": carousel_written,
     }
     if wan_summary is not None:
         result["wan_media"] = {
@@ -187,31 +276,4 @@ async def run_daily(
         }
     if douyin_meta is not None:
         result["douyin_kit"] = douyin_meta
-    return result
-
-
-async def run_h5_content(
-    for_date: date | None = None,
-    *,
-    skip_articles: bool = False,
-) -> Dict[str, Any]:
-    """Generate and publish H5 app content (tips + articles) to MySQL."""
-    d = for_date or fortune_date_beijing()
-    ops = get_ops_settings()
-
-    tips = await generate_daily_tips(d)
-
-    articles = []
-    if not skip_articles:
-        ext = fetch_all_external(d)
-        hot_kw = _hot_keyword_pool(ext)
-        all_headlines = ext.rss_headlines + ext.zhihu_headlines + ext.xhs_headlines
-        articles = await generate_articles(
-            d,
-            all_headlines,
-            hot_kw,
-            max_articles=ops.h5_max_articles_per_day,
-        )
-
-    result = await run_h5_publish(tips, articles, d)
     return result

@@ -1,6 +1,6 @@
 """Manually trigger daily guide generation (12 signs × 4 categories, fills gaps).
 
-Also optional: refresh H5 carousel articles via ops pipeline (RSS + LLM).
+Also optional: run ops `run_daily` for carousel articles (`tags=carousel`) + 抖音物料。
 
 Usage:
     cd backend && source .venv/bin/activate
@@ -27,7 +27,7 @@ from app.utils.beijing_date import fortune_date_beijing  # noqa: E402
 
 
 async def main() -> None:
-    parser = argparse.ArgumentParser(description="Seed daily guides / H5 content")
+    parser = argparse.ArgumentParser(description="Seed daily guides; optional ops run_daily for carousel")
     parser.add_argument(
         "--date",
         type=str,
@@ -37,7 +37,7 @@ async def main() -> None:
     parser.add_argument(
         "--articles",
         action="store_true",
-        help="Also run ops h5 pipeline (tips + carousel articles → MySQL).",
+        help="Also run ops.pipeline.run_daily (carousel articles → MySQL + out/ 物料).",
     )
     args = parser.parse_args()
 
@@ -63,11 +63,11 @@ async def main() -> None:
             raise
 
     if args.articles:
-        print("\n=== H5 articles + tips (ops.pipeline.run_h5_content) ===")
+        print("\n=== Ops run_daily (carousel DB + 抖音物料) ===")
         t1 = time.time()
-        from ops.pipeline import run_h5_content
+        from ops.pipeline import run_daily
 
-        result = await run_h5_content(target, skip_articles=False)
+        result = await run_daily(target, skip_wan_media=True)
         print(f"  Done in {time.time() - t1:.1f}s: {result}")
 
     await engine.dispose()
